@@ -4,14 +4,12 @@ import com.gregtechceu.gtceu.api.addon.GTAddon;
 import com.gregtechceu.gtceu.api.addon.IGTAddon;
 import com.gregtechceu.gtceu.api.registry.registrate.GTRegistrate;
 
-import net.minecraft.data.recipes.FinishedRecipe;
+import net.minecraft.data.recipes.RecipeOutput;
 
 import com.hepdd.gtmthings.common.registry.GTMTRegistration;
 import com.hepdd.gtmthings.data.GTMTRecipe;
 
-import java.util.function.Consumer;
-
-@GTAddon
+@GTAddon(GTMThings.MOD_ID)
 public class GTMTGTAddon implements IGTAddon {
 
     @Override
@@ -20,15 +18,7 @@ public class GTMTGTAddon implements IGTAddon {
     }
 
     @Override
-    public void initializeAddon() {}
-
-    @Override
-    public String addonModId() {
-        return GTMThings.MOD_ID;
-    }
-
-    @Override
-    public void addRecipes(Consumer<FinishedRecipe> provider) {
+    public void addRecipes(RecipeOutput provider) {
         GTMTRecipe.init(provider);
     }
 }

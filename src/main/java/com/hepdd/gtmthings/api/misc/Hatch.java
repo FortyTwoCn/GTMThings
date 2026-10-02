@@ -1,25 +1,22 @@
 package com.hepdd.gtmthings.api.misc;
 
-import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
+import com.gregtechceu.gtceu.api.block.MetaMachineBlock;
 import com.gregtechceu.gtceu.api.machine.multiblock.part.MultiblockPartMachine;
-import com.gregtechceu.gtceu.api.registry.GTRegistries;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
+/** Classify lazily after registries are ready, without pretending a block entity is creation metadata. */
 public final class Hatch {
 
-    public static final Set<Block> Set = new HashSet<>();
+    private static final Map<Block, Boolean> PARTS = new IdentityHashMap<>();
 
-    static {
-        GTRegistries.MACHINES.forEach(d -> {
-            var block = d.getBlock();
-            if (d.createMetaMachine((IMachineBlockEntity) d.getBlockEntityType().create(BlockPos.ZERO, block.defaultBlockState())) instanceof MultiblockPartMachine) {
-                Set.add(block);
-            }
-        });
+    public static boolean isHatch(Block block) {
+        return PARTS.computeIfAbsent(block, b -> b instanceof MetaMachineBlock machine && machine.getDefinition().getBlockEntityType().create(BlockPos.ZERO, b.defaultBlockState()) instanceof MultiblockPartMachine);
     }
+
+    private Hatch() {}
 }

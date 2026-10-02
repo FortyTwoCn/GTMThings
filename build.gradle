@@ -2,16 +2,27 @@ plugins {
     id 'idea'
     id 'java-library'
     id 'maven-publish'
-    alias libs.plugins.modDevGradleLegacy
+    alias libs.plugins.modDevGradle
     alias libs.plugins.lombok
     alias libs.plugins.spotless
 }
 
 version = mod_version
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-sourceSets.main.resources { srcDir 'src/generated/resources' }
+sourceSets {
+    main.resources {
+        srcDir 'src/generated/resources'
+        exclude '.cache/**'
+    }
+    gameTest {
+        java.srcDir 'src/gametest/java'
+        resources.srcDir 'src/gametest/resources'
+        compileClasspath += main.output + main.compileClasspath
+        runtimeClasspath += main.output + main.runtimeClasspath
+    }
+}
 
 apply from: "$rootDir/gradle/scripts/moddevgradle.gradle"
 apply from: "$rootDir/gradle/scripts/repositories.gradle"
@@ -27,7 +38,7 @@ generateModMetadata.doFirst {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
-    options.compilerArgs << "-Xlint:-deprecation" << "-Xlint:-removal"
+    options.compilerArgs += ["-Xlint:-deprecation", "-Xlint:-removal", "-Xmaxerrs", "1000"]
 }
 
 tasks.withType(Copy).configureEach {

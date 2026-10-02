@@ -1,34 +1,26 @@
 package com.hepdd.gtmthings.common.block.machine.multiblock.part;
 
 import com.gregtechceu.gtceu.api.GTValues;
+import com.gregtechceu.gtceu.api.blockentity.BlockEntityCreationInfo;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
-import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
-import com.gregtechceu.gtceu.api.machine.feature.IExplosionMachine;
-import com.gregtechceu.gtceu.api.machine.feature.IInteractedMachine;
-import com.gregtechceu.gtceu.api.machine.feature.IMachineLife;
 import com.gregtechceu.gtceu.api.machine.multiblock.part.TieredIOPartMachine;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableEnergyContainer;
+import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableEnergyContainer;
+import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
 import com.gregtechceu.gtceu.common.data.GTItems;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 import com.hepdd.gtmthings.api.machine.IWirelessEnergyContainerHolder;
 import com.hepdd.gtmthings.api.misc.WirelessEnergyContainer;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.Nullable;
@@ -41,40 +33,32 @@ import static com.hepdd.gtmthings.utils.TeamUtil.GetName;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class WirelessEnergyHatchPartMachine extends TieredIOPartMachine implements IInteractedMachine, IExplosionMachine, IMachineLife, IWirelessEnergyContainerHolder {
-
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
-            WirelessEnergyHatchPartMachine.class, TieredIOPartMachine.MANAGED_FIELD_HOLDER);
-
-    @Override
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
+public class WirelessEnergyHatchPartMachine extends TieredIOPartMachine implements com.gregtechceu.gtceu.api.machine.feature.IMuiMachine, IWirelessEnergyContainerHolder {
 
     @Nullable
     @Getter
     @Setter
     private WirelessEnergyContainer WirelessEnergyContainerCache;
 
-    @Persisted
+    @SaveField
     public final NotifiableEnergyContainer energyContainer;
     @Getter
     protected int amperage;
     private TickableSubscription updEnergySubs;
 
-    public WirelessEnergyHatchPartMachine(IMachineBlockEntity holder, int tier, IO io, int amperage, Object... args) {
+    public WirelessEnergyHatchPartMachine(BlockEntityCreationInfo holder, int tier, IO io, int amperage, Object... args) {
         super(holder, tier, io);
         this.amperage = amperage;
-        this.energyContainer = createEnergyContainer(args);
+        this.energyContainer = attachTrait(createEnergyContainer(args));
     }
 
     protected NotifiableEnergyContainer createEnergyContainer(Object... args) {
         NotifiableEnergyContainer container;
         if (io == IO.OUT) {
-            container = NotifiableEnergyContainer.emitterContainer(this, GTValues.VEX[tier] * 64L * amperage,
+            container = NotifiableEnergyContainer.emitterContainer(GTValues.VEX[tier] * 64L * amperage,
                     GTValues.VEX[tier], amperage);
         } else {
-            container = NotifiableEnergyContainer.receiverContainer(this, GTValues.VEX[tier] * 16L * amperage,
+            container = NotifiableEnergyContainer.receiverContainer(GTValues.VEX[tier] * 16L * amperage,
                     GTValues.VEX[tier], amperage);
         }
         return container;
@@ -140,7 +124,12 @@ public class WirelessEnergyHatchPartMachine extends TieredIOPartMachine implemen
     }
 
     @Override
-    public InteractionResult onUse(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult onUseWithItem(com.gregtechceu.gtceu.utils.ExtendedUseOnContext context) {
+        var state = context.getLevel().getBlockState(context.getClickedPos());
+        var world = context.getLevel();
+        var pos = context.getClickedPos();
+        var player = context.getPlayer();
+        var hand = context.getHand();
         if (isRemote()) return InteractionResult.PASS;
         ItemStack is = player.getItemInHand(hand);
         if (is.isEmpty()) return InteractionResult.PASS;
@@ -158,7 +147,7 @@ public class WirelessEnergyHatchPartMachine extends TieredIOPartMachine implemen
     }
 
     @Override
-    public boolean onLeftClick(Player player, Level world, InteractionHand hand, BlockPos pos, Direction direction) {
+    public boolean onLeftClick(Player player, InteractionHand hand, Direction direction) {
         if (isRemote()) return false;
         ItemStack is = player.getItemInHand(hand);
         if (is.isEmpty()) return false;
@@ -173,11 +162,10 @@ public class WirelessEnergyHatchPartMachine extends TieredIOPartMachine implemen
     }
 
     @Override
-    public void onMachinePlaced(@Nullable LivingEntity player, ItemStack stack) {
-        if (player != null) {
-            setOwnerUUID(player.getUUID());
-            updateEnergySubscription();
-        }
+    public void setOwnerUUID(UUID uuid) {
+        super.setOwnerUUID(uuid);
+        setWirelessEnergyContainerCache(null);
+        updateEnergySubscription();
     }
 
     @Override

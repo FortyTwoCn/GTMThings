@@ -1,33 +1,25 @@
 package com.hepdd.gtmthings.common.block.machine.electric;
 
 import com.gregtechceu.gtceu.api.GTValues;
+import com.gregtechceu.gtceu.api.blockentity.BlockEntityCreationInfo;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
-import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
-import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
-import com.gregtechceu.gtceu.api.machine.feature.IInteractedMachine;
-import com.gregtechceu.gtceu.api.machine.feature.IMachineLife;
 import com.gregtechceu.gtceu.api.machine.multiblock.part.TieredIOPartMachine;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableEnergyContainer;
+import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableEnergyContainer;
+import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
 import com.gregtechceu.gtceu.common.data.GTItems;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 import com.hepdd.gtmthings.api.machine.IWirelessEnergyContainerHolder;
 import com.hepdd.gtmthings.api.misc.WirelessEnergyContainer;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.Nullable;
@@ -40,14 +32,7 @@ import static com.hepdd.gtmthings.utils.TeamUtil.GetName;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class WirelessEnergyInterface extends TieredIOPartMachine implements IInteractedMachine, IMachineLife, IWirelessEnergyContainerHolder {
-
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(WirelessEnergyInterface.class,
-            MetaMachine.MANAGED_FIELD_HOLDER);
-
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
+public class WirelessEnergyInterface extends TieredIOPartMachine implements com.gregtechceu.gtceu.api.machine.feature.IMuiMachine, IWirelessEnergyContainerHolder {
 
     private TickableSubscription updEnergySubs;
 
@@ -56,18 +41,18 @@ public class WirelessEnergyInterface extends TieredIOPartMachine implements IInt
     @Nullable
     private WirelessEnergyContainer WirelessEnergyContainerCache;
 
-    @Persisted
+    @SaveField
     public final NotifiableEnergyContainer energyContainer;
 
-    public WirelessEnergyInterface(IMachineBlockEntity holder) {
+    public WirelessEnergyInterface(BlockEntityCreationInfo holder) {
         super(holder, GTValues.MAX, IO.IN);
-        this.energyContainer = createEnergyContainer();
+        this.energyContainer = attachTrait(createEnergyContainer());
     }
 
     protected NotifiableEnergyContainer createEnergyContainer() {
         NotifiableEnergyContainer container;
 
-        container = NotifiableEnergyContainer.receiverContainer(this, Long.MAX_VALUE,
+        container = NotifiableEnergyContainer.receiverContainer(Long.MAX_VALUE,
                 GTValues.VEX[tier], 67108864);
         container.setSideInputCondition(s -> s == getFrontFacing() && isWorkingEnabled());
         container.setCapabilityValidator(s -> s == null || s == getFrontFacing());
@@ -114,7 +99,12 @@ public class WirelessEnergyInterface extends TieredIOPartMachine implements IInt
     }
 
     @Override
-    public InteractionResult onUse(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult onUseWithItem(com.gregtechceu.gtceu.utils.ExtendedUseOnContext context) {
+        var state = context.getLevel().getBlockState(context.getClickedPos());
+        var world = context.getLevel();
+        var pos = context.getClickedPos();
+        var player = context.getPlayer();
+        var hand = context.getHand();
         if (isRemote()) return InteractionResult.PASS;
         ItemStack is = player.getItemInHand(hand);
         if (is.isEmpty()) return InteractionResult.PASS;
@@ -129,7 +119,7 @@ public class WirelessEnergyInterface extends TieredIOPartMachine implements IInt
     }
 
     @Override
-    public boolean onLeftClick(Player player, Level world, InteractionHand hand, BlockPos pos, Direction direction) {
+    public boolean onLeftClick(Player player, InteractionHand hand, Direction direction) {
         if (isRemote()) return false;
         ItemStack is = player.getItemInHand(hand);
         if (is.isEmpty()) return false;
@@ -144,11 +134,10 @@ public class WirelessEnergyInterface extends TieredIOPartMachine implements IInt
     }
 
     @Override
-    public void onMachinePlaced(@Nullable LivingEntity player, ItemStack stack) {
-        if (player != null) {
-            setOwnerUUID(player.getUUID());
-            updateEnergySubscription();
-        }
+    public void setOwnerUUID(UUID uuid) {
+        super.setOwnerUUID(uuid);
+        setWirelessEnergyContainerCache(null);
+        updateEnergySubscription();
     }
 
     @Override

@@ -1,121 +1,68 @@
 package com.hepdd.gtmthings.common.item;
 
-import com.gregtechceu.gtceu.api.gui.GuiTextures;
-import com.gregtechceu.gtceu.api.gui.fancy.FancyMachineUIWidget;
-import com.gregtechceu.gtceu.api.gui.fancy.IFancyUIProvider;
-import com.gregtechceu.gtceu.api.gui.fancy.TabsWidget;
-import com.gregtechceu.gtceu.api.gui.widget.SlotWidget;
 import com.gregtechceu.gtceu.api.item.component.IAddInformation;
-import com.gregtechceu.gtceu.api.item.component.IItemUIFactory;
+import com.gregtechceu.gtceu.api.mui.IItemUIHolder;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.Level;
-import net.minecraftforge.items.IItemHandlerModifiable;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
+import brachy.modularui.factory.PlayerInventoryGuiData;
+import brachy.modularui.screen.ModularPanel;
+import brachy.modularui.screen.UISettings;
+import brachy.modularui.value.sync.PanelSyncManager;
+import brachy.modularui.widgets.slot.ItemSlot;
+import brachy.modularui.widgets.slot.ModularSlot;
 import com.hepdd.gtmthings.data.CustomItems;
-import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
-import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
-import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
-import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
+import com.hepdd.gtmthings.data.GTMTDataComponents;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-import javax.annotation.Nullable;
-
-import static net.minecraft.resources.ResourceLocation.tryBuild;
-
-public final class VirtualItemProviderBehavior implements IAddInformation, IItemUIFactory, IFancyUIProvider {
+public final class VirtualItemProviderBehavior implements IAddInformation, IItemUIHolder {
 
     public static final VirtualItemProviderBehavior INSTANCE = new VirtualItemProviderBehavior();
 
-    private static ItemStack setVirtualItem(ItemStack stack, ItemStack virtualItem) {
-        CompoundTag tag = stack.getOrCreateTag();
-        tag.remove("t");
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(virtualItem.getItem());
-        tag.putString("m", id.getNamespace());
-        tag.putString("n", id.getPath());
-        CompoundTag itemTag = virtualItem.getTag();
-        if (itemTag != null) tag.put("t", itemTag);
-        return stack;
+    public static void setVirtualItem(ItemStack stack, ItemStack virtualItem) {
+        if (virtualItem.isEmpty()) stack.remove(GTMTDataComponents.VIRTUAL_ITEM);
+        else stack.set(GTMTDataComponents.VIRTUAL_ITEM, new com.hepdd.gtmthings.api.misc.VirtualItemData(virtualItem));
     }
 
     public static ItemStack getVirtualItem(ItemStack item) {
-        CompoundTag tag = item.getOrCreateTag();
-        String mod = tag.getString("m");
-        if (mod.isEmpty()) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack stack = BuiltInRegistries.ITEM.get(tryBuild(mod, tag.getString("n"))).getDefaultInstance();
-        if (tag.contains("t")) stack.setTag((CompoundTag) tag.get("t"));
-        return stack;
+        var selected = item.get(GTMTDataComponents.VIRTUAL_ITEM);
+        return selected == null ? ItemStack.EMPTY : selected.asStack();
     }
 
-    private Player player;
-    private InteractionHand hand;
-
     @Override
-    public void appendHoverText(@NotNull ItemStack itemstack, @Nullable Level world, @NotNull List<Component> list, @NotNull TooltipFlag flag) {
-        if (itemstack.hasTag()) {
-            list.add(Component.translatable("gui.ae2.Items").append(": ").append(getVirtualItem(itemstack).getDisplayName()));
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> lines, TooltipFlag flag) {
+        ItemStack virtualItem = getVirtualItem(stack);
+        if (!virtualItem.isEmpty()) {
+            lines.add(Component.translatable("gui.ae2.Items").append(": ").append(virtualItem.getDisplayName()));
         }
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Item item, Level level, Player player, InteractionHand usedHand) {
-        this.player = player;
-        hand = usedHand;
-        return IItemUIFactory.super.use(item, level, player, usedHand);
+    public ModularPanel<?> buildUI(PlayerInventoryGuiData<?> data, PanelSyncManager syncManager, UISettings settings) {
+        return ModularPanel.defaultPanel("virtual_item_provider").bindPlayerInventory()
+                .child(new ItemSlot().slot(new ModularSlot(new ItemHandler(data), 0))
+                        .horizontalCenter().top(24));
     }
 
-    @Override
-    public ModularUI createUI(HeldItemUIFactory.HeldItemHolder holder, Player entityPlayer) {
-        return new ModularUI(176, 166, holder, entityPlayer).widget(new FancyMachineUIWidget(this, 176, 166));
-    }
+    record ItemHandler(PlayerInventoryGuiData<?> data) implements IItemHandlerModifiable {
 
-    @Override
-    public Widget createMainPage(FancyMachineUIWidget widget) {
-        WidgetGroup group = new WidgetGroup(0, 0, 18 + 16, 18 + 16);
-        WidgetGroup container = new WidgetGroup(4, 4, 18 + 8, 18 + 8);
-        container.addWidget(new SlotWidget(new ItemHandler(player, hand), 0, 4, 4, true, true).setBackground(GuiTextures.SLOT));
-        group.addWidget(container);
-        return group;
-    }
-
-    @Override
-    public void attachSideTabs(TabsWidget sideTabs) {
-        sideTabs.setMainTab(this);
-    }
-
-    @Override
-    public IGuiTexture getTabIcon() {
-        return new ItemStackTexture(CustomItems.VIRTUAL_ITEM_PROVIDER.get());
-    }
-
-    @Override
-    public Component getTitle() {
-        return CustomItems.VIRTUAL_ITEM_PROVIDER.get().getDescription();
-    }
-
-    private record ItemHandler(Player entityPlayer, InteractionHand hand) implements IItemHandlerModifiable {
-
-        private ItemStack getItem() {
-            return entityPlayer.getItemInHand(hand);
+        private boolean locked() {
+            return data.getUsedItemStack().getOrDefault(GTMTDataComponents.MARKED, false);
         }
 
         @Override
-        public void setStackInSlot(int i, @NotNull ItemStack arg) {}
+        public void setStackInSlot(int slot, @NotNull ItemStack value) {
+            if (locked()) return;
+            ItemStack provider = data.getUsedItemStack().copy();
+            setVirtualItem(provider, value);
+            data.setUsedItemStack(provider);
+        }
 
         @Override
         public int getSlots() {
@@ -123,32 +70,33 @@ public final class VirtualItemProviderBehavior implements IAddInformation, IItem
         }
 
         @Override
-        public @NotNull ItemStack getStackInSlot(int i) {
-            return getVirtualItem(getItem());
+        public @NotNull ItemStack getStackInSlot(int slot) {
+            return getVirtualItem(data.getUsedItemStack());
         }
 
         @Override
-        public @NotNull ItemStack insertItem(int i, @NotNull ItemStack arg, boolean bl) {
-            if (arg.is(CustomItems.VIRTUAL_ITEM_PROVIDER.get())) return arg;
-            entityPlayer.setItemInHand(hand, setVirtualItem(getItem(), arg.copyWithCount(1)));
-            return arg.copyWithCount(arg.getCount() - 1);
+        public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack value, boolean simulate) {
+            if (value.isEmpty() || !isItemValid(slot, value) || !getStackInSlot(slot).isEmpty()) return value;
+            if (!simulate) setStackInSlot(slot, value.copyWithCount(1));
+            return value.copyWithCount(value.getCount() - 1);
         }
 
         @Override
-        public @NotNull ItemStack extractItem(int i, int j, boolean bl) {
-            if (getItem().getOrCreateTag().getBoolean("marked")) return ItemStack.EMPTY;
-            setVirtualItem(getItem(), ItemStack.EMPTY);
-            return getStackInSlot(0);
+        public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (locked() || amount <= 0) return ItemStack.EMPTY;
+            ItemStack result = getStackInSlot(slot);
+            if (!simulate) setStackInSlot(slot, ItemStack.EMPTY);
+            return result;
         }
 
         @Override
-        public int getSlotLimit(int i) {
+        public int getSlotLimit(int slot) {
             return 1;
         }
 
         @Override
-        public boolean isItemValid(int i, @NotNull ItemStack arg) {
-            return true;
+        public boolean isItemValid(int slot, @NotNull ItemStack value) {
+            return !locked() && !value.is(CustomItems.VIRTUAL_ITEM_PROVIDER.asItem());
         }
     }
 }

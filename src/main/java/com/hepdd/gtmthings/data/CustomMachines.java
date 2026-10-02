@@ -3,13 +3,14 @@ package com.hepdd.gtmthings.data;
 import com.gregtechceu.gtceu.GTCEu;
 import com.gregtechceu.gtceu.api.GTCEuAPI;
 import com.gregtechceu.gtceu.api.GTValues;
+import com.gregtechceu.gtceu.api.blockentity.BlockEntityCreationInfo;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.data.RotationState;
-import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
-import com.gregtechceu.gtceu.api.registry.registrate.MachineBuilder;
+import com.gregtechceu.gtceu.api.registry.registrate.builder.MachineBuilder;
+import com.gregtechceu.gtceu.api.registry.registrate.entry.MachineEntry;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.DualHatchPartMachine;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 
@@ -42,7 +43,7 @@ public class CustomMachines {
         GTMTHINGS_REGISTRATE.creativeModeTab(() -> CreativeModeTabs.MORE_MACHINES);
     }
 
-    public static final MachineDefinition[] DIGITAL_MINER = registerTieredMachines("digital_miner",
+    public static final MachineEntry<MachineDefinition>[] DIGITAL_MINER = registerTieredMachines("digital_miner",
             DigitalMiner::new,
             (tier, builder) -> builder
                     .langValue("%s Digital Miner %s".formatted(VLVH[tier], VLVT[tier]))
@@ -64,14 +65,14 @@ public class CustomMachines {
                     .register(),
             LV, MV, HV);
 
-    public static final MachineDefinition ME_EXPORT_BUFFER = GTMTHINGS_REGISTRATE.machine("me_export_buffer", MEOutputPartMachine::new)
+    public static final MachineEntry<MachineDefinition> ME_EXPORT_BUFFER = GTMTHINGS_REGISTRATE.machine("me_export_buffer", MEOutputPartMachine::new)
             .rotationState(RotationState.ALL)
             .abilities(PartAbility.EXPORT_ITEMS, PartAbility.EXPORT_FLUIDS)
             .colorOverlayTieredHullModel(GTMThings.id("block/overlay/appeng/me_output_bus"))
             .tier(LuV)
             .register();
 
-    public static final MachineDefinition[] HUGE_ITEM_IMPORT_BUS = registerTieredMachines("huge_item_import_bus",
+    public static final MachineEntry<MachineDefinition>[] HUGE_ITEM_IMPORT_BUS = registerTieredMachines("huge_item_import_bus",
             (holder, tier) -> new HugeBusPartMachine(holder, tier, IO.IN),
             (tier, builder) -> builder
                     .langValue(VNF[tier] + " Input Bus")
@@ -86,7 +87,7 @@ public class CustomMachines {
                     .register(),
             ALL_TIERS);
 
-    public static final MachineDefinition[] HUGE_ITEM_EXPORT_BUS = registerTieredMachines("huge_item_export_bus",
+    public static final MachineEntry<MachineDefinition>[] HUGE_ITEM_EXPORT_BUS = registerTieredMachines("huge_item_export_bus",
             (holder, tier) -> new HugeBusPartMachine(holder, tier, IO.OUT),
             (tier, builder) -> builder
                     .langValue(VNF[tier] + " Output Bus")
@@ -101,7 +102,7 @@ public class CustomMachines {
                     .register(),
             ALL_TIERS);
 
-    public static final MachineDefinition[] HUGE_INPUT_DUAL_HATCH = registerTieredMachines("huge_dual_hatch",
+    public static final MachineEntry<MachineDefinition>[] HUGE_INPUT_DUAL_HATCH = registerTieredMachines("huge_dual_hatch",
             (holder, tier) -> new HugeDualHatchPartMachine(holder, tier, IO.IN),
             (tier, builder) -> {
                 builder.langValue(GTValues.VNF[tier] + " Huge Input Dual Hatch")
@@ -117,7 +118,7 @@ public class CustomMachines {
             },
             ALL_TIERS);
 
-    public static final MachineDefinition[] PROGRAMMABLEC_HATCH = registerTieredMachines(
+    public static final MachineEntry<MachineDefinition>[] PROGRAMMABLEC_HATCH = registerTieredMachines(
             "programmablec_hatch", (holder, tier) -> new ProgrammableHatchPartMachine(holder, tier, IN),
             (tier, builder) -> builder
                     .langValue("%s Programmablec Hatch".formatted(VNF[tier]))
@@ -131,11 +132,11 @@ public class CustomMachines {
                     .register(),
             DUAL_HATCH_TIERS);
 
-    public static MachineDefinition[] registerTieredMachines(String name,
-                                                             BiFunction<IMachineBlockEntity, Integer, MetaMachine> factory,
-                                                             BiFunction<Integer, MachineBuilder<MachineDefinition, ?>, MachineDefinition> builder,
-                                                             int... tiers) {
-        MachineDefinition[] definitions = new MachineDefinition[GTValues.TIER_COUNT];
+    public static MachineEntry<MachineDefinition>[] registerTieredMachines(String name,
+                                                                           BiFunction<BlockEntityCreationInfo, Integer, MetaMachine> factory,
+                                                                           BiFunction<Integer, MachineBuilder<MachineDefinition, ?, ?>, MachineEntry<MachineDefinition>> builder,
+                                                                           int... tiers) {
+        MachineEntry<MachineDefinition>[] definitions = new MachineEntry[GTValues.TIER_COUNT];
         for (int tier : tiers) {
             var register = GTMTHINGS_REGISTRATE
                     .machine(GTValues.VN[tier].toLowerCase(Locale.ROOT) + "_" + name,

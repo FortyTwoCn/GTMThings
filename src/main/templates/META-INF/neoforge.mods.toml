@@ -1,0 +1,46 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "${mod_license}"
+
+# This is a URL to e.g. your GitHub or CurseForge issues page.
+# It will appear in any crash reports this mod is directly involved in.
+issueTrackerURL="https://github.com/liansishen/GTMThings/issues"
+# A list of mods - how many allowed here is determined by the individual mod loader
+
+[[mods]]
+    modId = "gtmthings"
+    version = "${version}"
+    displayName = "${mod_name}"
+    displayURL = "${mod_url}"
+    authors="${mod_authors}"
+    description = '''
+Add some machines to GregTech-Modern
+'''
+
+    [[dependencies.gtmthings]]
+        modId = "neoforge"
+        type = "required"
+        versionRange = "[${neoforge_version},)"
+        ordering = "NONE"
+        side = "BOTH"
+    [[dependencies.gtmthings]]
+        modId = "minecraft"
+        type = "required"
+        versionRange = "[${minecraft_version}]"
+        ordering = "NONE"
+        side = "BOTH"
+    [[dependencies.gtmthings]]
+        modId = "gtceu"
+        type = "required"
+        versionRange = "[8.0.0,8.1)"
+        ordering = "AFTER"
+        side = "BOTH"
+    [[dependencies.gtmthings]]
+        modId = "ae2"
+        type = "required"
+        versionRange = "[19.2.8,20)"
+        ordering = "AFTER"
+        side = "BOTH"
+
+[[mixins]]
+    config = "gtmthings.mixins.json"

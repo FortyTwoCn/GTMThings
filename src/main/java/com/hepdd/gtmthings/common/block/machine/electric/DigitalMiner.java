@@ -1,129 +1,71 @@
 package com.hepdd.gtmthings.common.block.machine.electric;
 
 import com.gregtechceu.gtceu.api.GTValues;
-import com.gregtechceu.gtceu.api.cover.filter.ItemFilter;
-import com.gregtechceu.gtceu.api.gui.GuiTextures;
-import com.gregtechceu.gtceu.api.gui.widget.SlotWidget;
-import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
+import com.gregtechceu.gtceu.api.blockentity.BlockEntityCreationInfo;
+import com.gregtechceu.gtceu.api.cover.filter.Filter;
+import com.gregtechceu.gtceu.api.cover.filter.FilterHandler;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
 import com.gregtechceu.gtceu.api.machine.WorkableTieredMachine;
 import com.gregtechceu.gtceu.api.machine.feature.IDataInfoProvider;
-import com.gregtechceu.gtceu.api.machine.feature.IFancyUIMachine;
-import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
-import com.gregtechceu.gtceu.api.transfer.item.CustomItemStackHandler;
-import com.gregtechceu.gtceu.common.data.GTItems;
+import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
 import com.gregtechceu.gtceu.common.data.machines.GTMachineUtils;
-import com.gregtechceu.gtceu.common.item.PortableScannerBehavior;
+import com.gregtechceu.gtceu.common.item.behavior.PortableScannerBehavior;
+import com.gregtechceu.gtceu.common.mui.GTMuiWidgets;
+import com.gregtechceu.gtceu.utils.ExtendedUseOnContext;
+import com.gregtechceu.gtceu.utils.GTTransferUtils;
+import com.gregtechceu.gtceu.utils.ISubscription;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
-import net.minecraft.server.TickTask;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.phys.BlockHitResult;
 
+import brachy.modularui.api.drawable.Text;
+import brachy.modularui.factory.PosGuiData;
+import brachy.modularui.factory.SidedPosGuiData;
+import brachy.modularui.screen.UISettings;
+import brachy.modularui.value.sync.BooleanSyncValue;
+import brachy.modularui.value.sync.IntSyncValue;
+import brachy.modularui.value.sync.InteractionSyncHandler;
+import brachy.modularui.value.sync.PanelSyncManager;
+import brachy.modularui.widget.ParentWidget;
+import brachy.modularui.widgets.ButtonWidget;
+import brachy.modularui.widgets.ToggleButton;
+import brachy.modularui.widgets.layout.Flow;
+import brachy.modularui.widgets.layout.Grid;
+import brachy.modularui.widgets.slot.ItemSlot;
+import brachy.modularui.widgets.slot.ModularSlot;
+import brachy.modularui.widgets.slot.SlotGroup;
 import com.hepdd.gtmthings.api.capability.IDigitalMiner;
-import com.hepdd.gtmthings.api.gui.widget.SimpleNumberInputWidget;
+import com.hepdd.gtmthings.api.gui.ComponentListUI;
 import com.hepdd.gtmthings.common.block.machine.trait.miner.DigitalMinerLogic;
-import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
-import com.lowdragmc.lowdraglib.gui.util.ClickData;
-import com.lowdragmc.lowdraglib.gui.widget.*;
-import com.lowdragmc.lowdraglib.side.item.ItemTransferHelper;
-import com.lowdragmc.lowdraglib.syncdata.ISubscription;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
-import com.mojang.blaze3d.MethodsReturnNonnullByDefault;
 import lombok.Getter;
-import lombok.Setter;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
-import javax.annotation.ParametersAreNonnullByDefault;
+public class DigitalMiner extends WorkableTieredMachine implements IDigitalMiner, IDataInfoProvider, com.gregtechceu.gtceu.api.machine.feature.IMuiMachine {
 
-@ParametersAreNonnullByDefault
-@MethodsReturnNonnullByDefault
-public class DigitalMiner extends WorkableTieredMachine implements IDigitalMiner, IFancyUIMachine, IDataInfoProvider {
-
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(DigitalMiner.class,
-            WorkableTieredMachine.MANAGED_FIELD_HOLDER);
-
-    private long energyPerTick;
-    @Nullable
-    protected TickableSubscription autoOutputSubs;
-    @Nullable
-    protected ISubscription exportItemSubs, energySubs;
-    @Persisted
-    protected final CustomItemStackHandler filterInventory;
+    @SaveField
     @Getter
-    protected ItemFilter itemFilter;
-    // widget
-    protected SlotWidget filterSlot;
-    protected ButtonWidget resetButton;
-    protected ButtonWidget silkButton;
-    protected ButtonWidget fortuneButton;
-    protected ButtonWidget overClockButton;
-    // miner property
+    private final FilterHandler<ItemStack> filterInventory;
     @Getter
-    @Setter
-    @Persisted
-    private int minerRadius;
+    @SaveField
+    private int minerRadius, minHeight = 0, maxHeight = 64;
     @Getter
-    @Setter
-    @Persisted
-    private int minHeight;
-    @Getter
-    @Setter
-    @Persisted
-    private int maxHeight;
+    @SaveField
     private int silkLevel;
-    private int fortuneLevel;
+    private TickableSubscription autoOutputSubs;
+    private ISubscription exportItemSubs;
+    private boolean initialized;
 
-    public DigitalMiner(IMachineBlockEntity holder, int tier, Object... args) {
-        super(holder, tier, GTMachineUtils.defaultTankSizeFunction, args);
-        this.energyPerTick = GTValues.VEX[tier - 1];
-        this.filterInventory = createFilterItemHandler();
-        this.fortuneLevel = 1;
-        this.silkLevel = 0;
-        this.minHeight = 0;
-        this.maxHeight = 64;
-        this.minerRadius = 32;
-    }
-
-    //////////////////////////////////////
-    // ***** Initialization ******//
-    //////////////////////////////////////
-
-    @Override
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
-
-    protected CustomItemStackHandler createFilterItemHandler() {
-        var transfer = new CustomItemStackHandler();
-        transfer.setFilter(
-                item -> item.is(GTItems.ITEM_FILTER.asItem()) || item.is(GTItems.TAG_FILTER.asItem()));
-        return transfer;
-    }
-
-    @Override
-    protected RecipeLogic createRecipeLogic(Object... args) {
-        return new DigitalMinerLogic(this, minerRadius, minHeight, maxHeight, silkLevel, itemFilter, (int) (40 / Math.pow(2, getTier())));
-    }
-
-    @Override
-    public void onMachineRemoved() {
-        clearInventory(exportItems.storage);
-        clearInventory(filterInventory);
+    public DigitalMiner(BlockEntityCreationInfo info, int tier, Object... args) {
+        super(info, tier, false, new DigitalMinerLogic(tier), GTMachineUtils.defaultTankSizeFunction);
+        minerRadius = Math.min(32, 8 << tier);
+        filterInventory = new com.hepdd.gtmthings.api.misc.PersistentFilterHandler<>(this, ItemStack.class).onFilterLoaded(filter -> filterChanged())
+                .onFilterUpdated(filter -> filterChanged()).onFilterRemoved(this::filterChanged);
     }
 
     @Override
@@ -131,255 +73,164 @@ public class DigitalMiner extends WorkableTieredMachine implements IDigitalMiner
         return (DigitalMinerLogic) super.getRecipeLogic();
     }
 
-    @Override
-    public void onNeighborChanged(Block block, BlockPos fromPos, boolean isMoving) {
-        super.onNeighborChanged(block, fromPos, isMoving);
-        updateAutoOutputSubscription();
+    public Filter<ItemStack> getItemFilter() {
+        return filterInventory.isFilterPresent() ? filterInventory.getFilter() : null;
+    }
+
+    public void setMinerRadius(int radius) {
+        minerRadius = Math.clamp(radius, 1, 8 << getTier());
+        markAsChanged();
+    }
+
+    public void setMinHeight(int height) {
+        minHeight = Math.clamp(height, getLevel().getMinBuildHeight(), getLevel().getMaxBuildHeight() - 1);
+        markAsChanged();
+    }
+
+    public void setMaxHeight(int height) {
+        maxHeight = Math.clamp(height, getLevel().getMinBuildHeight(), getLevel().getMaxBuildHeight() - 1);
+        markAsChanged();
     }
 
     @Override
     public void onLoad() {
         super.onLoad();
-        if (!isRemote()) {
-            filterChange();
-            if (getLevel() instanceof ServerLevel serverLevel) {
-                serverLevel.getServer().tell(new TickTask(0, this::updateAutoOutputSubscription));
-            }
-            exportItemSubs = exportItems.addChangedListener(this::updateAutoOutputSubscription);
-        }
+        // Rehydrating the saved filter must not reset the persisted mining queue.
+        var filter = getItemFilter();
+        initialized = true;
+        getRecipeLogic().configure(minerRadius, minHeight, maxHeight, silkLevel, filter);
+        exportItemSubs = exportItems.addChangedListener(this::updateAutoOutputSubscription);
+        scheduleForNextServerTick(this::updateAutoOutputSubscription);
     }
 
     @Override
     public void onUnload() {
-        super.onUnload();
+        initialized = false;
+        if (autoOutputSubs != null) {
+            autoOutputSubs.unsubscribe();
+            autoOutputSubs = null;
+        }
         if (exportItemSubs != null) {
             exportItemSubs.unsubscribe();
             exportItemSubs = null;
         }
-
-        if (energySubs != null) {
-            energySubs.unsubscribe();
-            energySubs = null;
-        }
+        super.onUnload();
     }
 
-    //////////////////////////////////////
-    // ********** LOGIC **********//
-    //////////////////////////////////////
-    protected void updateAutoOutputSubscription() {
-        var outputFacingItems = getFrontFacing();
-        if (!exportItems.isEmpty() && ItemTransferHelper.getItemTransfer(getLevel(),
-                getPos().relative(outputFacingItems), outputFacingItems.getOpposite()) != null) {
-            autoOutputSubs = subscribeServerTick(autoOutputSubs, this::autoOutput);
-        } else if (autoOutputSubs != null) {
+    @Override
+    public void onMachineDestroyed() {
+        if (filterInventory.isFilterPresent()) Block.popResource(getLevel(), getBlockPos(), filterInventory.getFilterItem());
+        super.onMachineDestroyed();
+    }
+
+    @Override
+    public void onNeighborChanged(Block block, BlockPos from, boolean moving) {
+        super.onNeighborChanged(block, from, moving);
+        updateAutoOutputSubscription();
+    }
+
+    private void updateAutoOutputSubscription() {
+        if (getLevel() == null || isRemote()) return;
+        if (!exportItems.isEmpty() && GTTransferUtils.hasAdjacentItemHandler(getLevel(), getBlockPos(), getFrontFacing()))
+            autoOutputSubs = subscribeServerTick(autoOutputSubs, () -> {
+                if (getOffsetTimer() % 5 == 0) exportItems.exportToNearby(getFrontFacing());
+                updateAutoOutputSubscription();
+            });
+        else if (autoOutputSubs != null) {
             autoOutputSubs.unsubscribe();
             autoOutputSubs = null;
         }
     }
 
-    protected void autoOutput() {
-        if (getOffsetTimer() % 5 == 0) {
-            exportItems.exportToNearby(getFrontFacing());
-        }
-        updateAutoOutputSubscription();
-    }
-
     @Override
     public boolean drainInput(boolean simulate) {
-        long resultEnergy = energyContainer.getEnergyStored() - energyPerTick;
-        if (resultEnergy >= 0L && resultEnergy <= energyContainer.getEnergyCapacity()) {
-            if (!simulate)
-                energyContainer.removeEnergy(energyPerTick);
-            return true;
-        }
-        return false;
-    }
-
-    private static final int BORDER_WIDTH = 3;
-
-    @Override
-    public Widget createUIWidget() {
-        int rowSize = 3;
-        int colSize = 9;
-        int width = colSize * 18 + 16;
-        int height = rowSize * 18 + 76 + 4;
-        int index = 0;
-
-        WidgetGroup group = new WidgetGroup(0, 0, width, height);
-
-        // infomation screen
-        var componentPanel = new ComponentPanelWidget(4, 5, this::addDisplayText).setMaxWidthLimit(110);
-        var container = new WidgetGroup(8, 0, 87, 76);
-        container.addWidget(new DraggableScrollableWidgetGroup(4, 4, container.getSize().width - 8,
-                container.getSize().height - 8)
-                .setBackground(GuiTextures.DISPLAY)
-                .addWidget(componentPanel));
-        container.setBackground(GuiTextures.BACKGROUND_INVERSE);
-        group.addWidget(container);
-
-        // output slots
-        WidgetGroup slots = new WidgetGroup(8, 76 + 4 / 2, colSize * 18, rowSize * 18);
-        for (int y = 0; y < rowSize; y++) {
-            for (int x = 0; x < colSize; x++) {
-                var slot = new SlotWidget(exportItems, index++, x * 18, y * 18, true, false)
-                        .setBackground(GuiTextures.SLOT);
-                slots.addWidget(slot);
-            }
-        }
-        group.addWidget(slots);
-
-        // filter slot
-        this.filterSlot = new SlotWidget(this.filterInventory, 0, 117, 4, true, true);
-        this.filterSlot.setChangeListener(this::filterChange).setBackground(GuiTextures.SLOT, GuiTextures.FILTER_SLOT_OVERLAY);
-        group.addWidget(filterSlot);
-
-        // Radius
-        group.addWidget(new LabelWidget(99, 26, "水平范围:"));
-        group.addWidget(new SimpleNumberInputWidget(140, 24, 24, 12, this::getMinerRadius, this::setMinerRadius)
-                .setMin(1).setMax((int) (8 * Math.pow(2, getTier()))));
-
-        // Min height
-        group.addWidget(new LabelWidget(99, 44, "最小高度:"));
-        group.addWidget(new SimpleNumberInputWidget(140, 42, 24, 12, this::getMinHeight, this::setMinHeight)
-                .setMin(getLevel().getMinBuildHeight()).setMax(getLevel().getMaxBuildHeight()));
-
-        // Max height
-        group.addWidget(new LabelWidget(99, 62, "最大高度:"));
-        group.addWidget(new SimpleNumberInputWidget(140, 60, 24, 12, this::getMaxHeight, this::setMaxHeight)
-                .setMin(getLevel().getMinBuildHeight()).setMax(getLevel().getMaxBuildHeight()));
-
-        // reset button
-        this.resetButton = new ButtonWidget(16, 46 + BORDER_WIDTH, 18, 16 - BORDER_WIDTH,
-                new TextTexture("重置").setDropShadow(false).setColor(ChatFormatting.GRAY.getColor()), this::reset);
-        this.resetButton.setHoverTooltips(Component.literal("修改配置后必须重置才能生效。"));
-        group.addWidget(this.resetButton);
-
-        // silk button
-        this.silkButton = new ButtonWidget(36, 46 + BORDER_WIDTH, 18, 16 - BORDER_WIDTH,
-                new TextTexture("精准")
-                        .setDropShadow(false)
-                        .setColor(silkLevel == 0 ? ChatFormatting.GRAY.getColor() : ChatFormatting.GREEN.getColor()),
-                this::setSilk);
-        this.silkButton.setHoverTooltips(Component.literal("开启精准采集模式，4倍耗电。"));
-        group.addWidget(this.silkButton);
-
-        // fortune button
-        // this.fortuneButton = new ButtonWidget(56,46+BORDER_WIDTH, 18, 16 - BORDER_WIDTH,
-        // new TextTexture("时运").setDropShadow(false).setColor(ChatFormatting.GRAY.getColor()), this::setFortune);
-        // this.fortuneButton.setHoverTooltips(Component.literal("时运III模式，4倍耗电，与精准采集不能同时开启。"));
-        // group.addWidget(this.fortuneButton);
-
-        // overclock button
-        // this.overClockButton = new ButtonWidget(189,86+BORDER_WIDTH, 18, 16 - BORDER_WIDTH,
-        // new TextTexture("超频").setDropShadow(false).setColor(ChatFormatting.BLACK.getColor()), this::setOverClock);
-        // this.overClockButton.setHoverTooltips(Component.literal("超频模式，4倍耗电"));
-        // group.addWidget(this.overClockButton);
-
-        return group;
+        long required = GTValues.VEX[getTier() - 1] * (silkLevel == 1 ? 4 : 1);
+        if (energyContainer.getEnergyStored() < required) return false;
+        if (!simulate) energyContainer.removeEnergy(required);
+        return true;
     }
 
     private void resetRecipe() {
-        setWorkingEnabled(false);
-        getRecipeLogic().resetRecipeLogic(this.minerRadius, this.minHeight, this.maxHeight, this.silkLevel, itemFilter);
+        if (isRemote()) return;
+        getRecipeLogic().resetRecipeLogic(minerRadius, minHeight, maxHeight, silkLevel, getItemFilter());
+        markAsChanged();
     }
 
-    private void filterChange() {
-        this.itemFilter = null;
-        if (!filterInventory.getStackInSlot(0).isEmpty())
-            this.itemFilter = ItemFilter.loadFilter(filterInventory.getStackInSlot(0));
+    private void filterChanged() {
+        if (initialized) resetRecipe();
+    }
+
+    public void setSilk(boolean enabled) {
+        silkLevel = enabled ? 1 : 0;
         resetRecipe();
     }
 
-    private void reset(ClickData clickData) {
-        resetRecipe();
+    private List<Component> displayText() {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("gui.gtmthings.digital_miner.queued", getRecipeLogic().getOreAmount()));
+        if (getRecipeLogic().isDone()) lines.add(Component.translatable("gtceu.multiblock.large_miner.done").withStyle(ChatFormatting.GREEN));
+        else if (getRecipeLogic().isWorking()) lines.add(Component.translatable("gtceu.multiblock.large_miner.working").withStyle(ChatFormatting.GOLD));
+        else if (!isWorkingEnabled()) lines.add(Component.translatable("gtceu.multiblock.work_paused"));
+        if (getRecipeLogic().isInventoryFull()) lines.add(Component.translatable("gtceu.multiblock.large_miner.invfull").withStyle(ChatFormatting.RED));
+        if (!drainInput(true)) lines.add(Component.translatable("gtceu.multiblock.large_miner.needspower").withStyle(ChatFormatting.RED));
+        if (getRecipeLogic().getBestFailureReason() != null && drainInput(true) && !getRecipeLogic().isInventoryFull()) lines.add(getRecipeLogic().getBestFailureReason());
+        return lines;
     }
 
-    private void setSilk(ClickData clickData) {
-        if (silkLevel == 0) {
-            silkLevel = 1;
-            this.silkButton.setButtonTexture(new TextTexture("精准").setDropShadow(false).setColor(ChatFormatting.GREEN.getColor()));
-            energyPerTick = GTValues.VEX[getTier() - 1] * 4;
-        } else {
-            silkLevel = 0;
-            this.silkButton.setButtonTexture(new TextTexture("精准").setDropShadow(false).setColor(ChatFormatting.GRAY.getColor()));
-            energyPerTick = GTValues.VEX[getTier() - 1];
-        }
-        resetRecipe();
-    }
-
-    // private void setFortune(ClickData clickData) {
-    // var energyMulti = 0;
-    // if (fortuneLevel == 1) {
-    // fortuneLevel = 6;
-    // energyMulti = 1;
-    // this.fortuneButton.setButtonTexture(new
-    // TextTexture("时运").setDropShadow(false).setColor(ChatFormatting.GREEN.getColor()));
-    // } else {
-    // fortuneLevel = 1;
-    // this.fortuneButton.setButtonTexture(new
-    // TextTexture("时运").setDropShadow(false).setColor(ChatFormatting.GRAY.getColor()));
-    // }
-    // silkLevel = 0;
-    // this.silkButton.setButtonTexture(new
-    // TextTexture("精准").setDropShadow(false).setColor(ChatFormatting.GRAY.getColor()));
-    // energyPerTick = GTValues.VEX[MV-1] * 4 * energyMulti;
-    // }
-
-    private void addDisplayText(@NotNull List<Component> textList) {
-        textList.add(Component.literal("挖掘: ").append(String.valueOf(getRecipeLogic().getOreAmount())));
-        if (getRecipeLogic().isDone())
-            textList.add(Component.translatable("gtceu.multiblock.large_miner.done")
-                    .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN)));
-        else if (getRecipeLogic().isWorking())
-            textList.add(Component.translatable("gtceu.multiblock.large_miner.working")
-                    .setStyle(Style.EMPTY.withColor(ChatFormatting.GOLD)));
-        else if (!this.isWorkingEnabled())
-            textList.add(Component.translatable("gtceu.multiblock.work_paused"));
-        if (getRecipeLogic().isInventoryFull())
-            textList.add(Component.translatable("gtceu.multiblock.large_miner.invfull")
-                    .setStyle(Style.EMPTY.withColor(ChatFormatting.RED)));
-        if (!drainInput(true))
-            textList.add(Component.translatable("gtceu.multiblock.large_miner.needspower")
-                    .setStyle(Style.EMPTY.withColor(ChatFormatting.RED)));
-    }
-
-    //////////////////////////////////////
-    // ******* Interaction *******//
-    //////////////////////////////////////
     @Override
-    protected InteractionResult onScrewdriverClick(Player playerIn, InteractionHand hand, Direction gridSide,
-                                                   BlockHitResult hitResult) {
+    public void buildMainUI(ParentWidget<?> main, PosGuiData data, PanelSyncManager manager, UISettings settings) {
+        var radius = new IntSyncValue(this::getMinerRadius, this::setMinerRadius).allowC2S();
+        var min = new IntSyncValue(this::getMinHeight, this::setMinHeight).allowC2S();
+        var max = new IntSyncValue(this::getMaxHeight, this::setMaxHeight).allowC2S();
+        var silk = new BooleanSyncValue(() -> silkLevel == 1, this::setSilk).allowC2S();
+        manager.syncValue("radius", radius);
+        manager.syncValue("minHeight", min);
+        manager.syncValue("maxHeight", max);
+        manager.syncValue("silk", silk);
+        Flow column = Flow.column().width(170).coverChildrenHeight().padding(4).childPadding(4);
+        column.child(ComponentListUI.create("status", manager, this::displayText, 55));
+        var sided = new SidedPosGuiData(data.getPlayer(), getBlockPos(), getFrontFacing());
+        column.child(GTMuiWidgets.createFilterRow(filterInventory, sided, manager, settings));
+        column.child(Flow.row().height(18).child(Text.lang("gui.gtmthings.digital_miner.radius").asWidget().width(70))
+                .child(GTMuiWidgets.createIntInputWithButtons(radius, () -> 1, () -> 8 << getTier()).width(90)));
+        column.child(Flow.row().height(18).child(Text.lang("gui.gtmthings.digital_miner.min_height").asWidget().width(70))
+                .child(GTMuiWidgets.createIntInputWithButtons(min, () -> getLevel().getMinBuildHeight(), () -> getLevel().getMaxBuildHeight() - 1).width(90)));
+        column.child(Flow.row().height(18).child(Text.lang("gui.gtmthings.digital_miner.max_height").asWidget().width(70))
+                .child(GTMuiWidgets.createIntInputWithButtons(max, () -> getLevel().getMinBuildHeight(), () -> getLevel().getMaxBuildHeight() - 1).width(90)));
+        column.child(Flow.row().coverChildrenHeight().childPadding(5)
+                .child(new ButtonWidget<>().size(75, 18).overlay(Text.lang("gui.gtmthings.digital_miner.reset"))
+                        .tooltip(r -> r.addLine(Component.translatable("gui.gtmthings.digital_miner.reset.desc")))
+                        .syncHandler(new InteractionSyncHandler().setOnMousePressed(mouse -> { if (!mouse.isClient()) resetRecipe(); })))
+                .child(new ToggleButton().value(silk).size(75, 18).overlay(Text.lang("gui.gtmthings.digital_miner.silk"))
+                        .tooltip(r -> r.addLine(Component.translatable("gui.gtmthings.digital_miner.silk.desc")))));
+        SlotGroup slots = new SlotGroup("output", exportItems.getSlots());
+        column.child(new Grid().coverChildren().gridOfSizeWidth(exportItems.getSlots(), 9,
+                (x, y, i) -> new ItemSlot().slot(new ModularSlot(exportItems.storage, i).slotGroup(slots).accessibility(false, true))));
+        main.child(column);
+    }
+
+    @Override
+    protected InteractionResult onScrewdriverClick(ExtendedUseOnContext context) {
         if (isRemote()) return InteractionResult.SUCCESS;
-
-        if (!this.isActive()) {
-            int currentRadius = getRecipeLogic().getCurrentRadius();
-            if (currentRadius == 1)
-                getRecipeLogic().setCurrentRadius(getRecipeLogic().getMaximumRadius());
-            else if (playerIn.isShiftKeyDown())
-                getRecipeLogic().setCurrentRadius(Math.max(1, Math.round(currentRadius / 2.0f)));
-            else
-                getRecipeLogic().setCurrentRadius(Math.max(1, currentRadius - 1));
-
+        var player = context.getPlayer();
+        if (player == null) return InteractionResult.PASS;
+        if (isActive()) player.sendSystemMessage(Component.translatable("gtceu.multiblock.large_miner.errorradius"));
+        else {
+            int radius = getRecipeLogic().getCurrentRadius();
+            getRecipeLogic().setCurrentRadius(radius == 1 ? getRecipeLogic().getMaximumRadius() : player.isShiftKeyDown() ? Math.max(1, Math.round(radius / 2f)) : Math.max(1, radius - 1));
             getRecipeLogic().resetArea(true);
-
-            int workingArea = IDigitalMiner.getWorkingArea(getRecipeLogic().getCurrentRadius());
-            playerIn.sendSystemMessage(
-                    Component.translatable("gtceu.universal.tooltip.working_area", workingArea, workingArea));
-        } else {
-            playerIn.sendSystemMessage(Component.translatable("gtceu.multiblock.large_miner.errorradius"));
+            int area = IDigitalMiner.getWorkingArea(getRecipeLogic().getCurrentRadius());
+            player.sendSystemMessage(Component.translatable("gtceu.universal.tooltip.working_area", area, area));
         }
         return InteractionResult.SUCCESS;
     }
 
-    @NotNull
     @Override
     public List<Component> getDataInfo(PortableScannerBehavior.DisplayMode mode) {
-        if (mode == PortableScannerBehavior.DisplayMode.SHOW_ALL ||
-                mode == PortableScannerBehavior.DisplayMode.SHOW_MACHINE_INFO) {
-            int workingArea = IDigitalMiner.getWorkingArea(getRecipeLogic().getCurrentRadius());
-            return Collections.singletonList(
-                    Component.translatable("gtceu.universal.tooltip.working_area", workingArea, workingArea));
+        if (mode == PortableScannerBehavior.DisplayMode.SHOW_ALL || mode == PortableScannerBehavior.DisplayMode.SHOW_MACHINE_INFO) {
+            int area = IDigitalMiner.getWorkingArea(getRecipeLogic().getCurrentRadius());
+            return List.of(Component.translatable("gtceu.universal.tooltip.working_area", area, area));
         }
-        return new ArrayList<>();
+        return List.of();
     }
 }

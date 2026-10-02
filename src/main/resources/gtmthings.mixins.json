@@ -1,10 +1,11 @@
 {
   "required": true,
   "package": "com.hepdd.gtmthings.mixin",
-  "compatibilityLevel": "JAVA_17",
+  "compatibilityLevel": "JAVA_21",
   "minVersion": "0.8",
   "mixins": [
-    "SimpleTieredMachineMixin"
+    "SimpleTieredMachineMixin",
+    "XorPredicateMixin"
   ],
   "client": [
   ],

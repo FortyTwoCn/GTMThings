@@ -1,8 +1,6 @@
 package com.hepdd.gtmthings.integration.jade.provider;
 
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
-import com.gregtechceu.gtceu.integration.jade.provider.CapabilityBlockProvider;
-import com.gregtechceu.gtceu.utils.FormattingUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -25,10 +23,10 @@ import static com.hepdd.gtmthings.utils.TeamUtil.GetName;
 import static com.hepdd.gtmthings.utils.TeamUtil.hasOwner;
 import static net.minecraft.resources.ResourceLocation.tryBuild;
 
-public class WirelessEnergyHatchProvider extends CapabilityBlockProvider<IBindable> {
+public class WirelessEnergyHatchProvider extends MachineDataProvider<IBindable> {
 
     public WirelessEnergyHatchProvider() {
-        super(tryBuild(GTMThings.MOD_ID, FormattingUtil.toLowerCaseUnder("wireless_energy_hatch_provider")));
+        super(tryBuild(GTMThings.MOD_ID, "wireless_energy_hatch_provider"));
     }
 
     @Override
@@ -51,10 +49,10 @@ public class WirelessEnergyHatchProvider extends CapabilityBlockProvider<IBindab
 
     @Override
     protected void write(CompoundTag data, IBindable capability) {
+        data.putBoolean("isBindable", true);
+        data.putBoolean("cover", capability.cover());
         if (capability.getUUID() != null) {
-            data.putBoolean("isBindable", true);
             data.putUUID("uuid", capability.getUUID());
-            data.putBoolean("cover", capability.cover());
         }
     }
 

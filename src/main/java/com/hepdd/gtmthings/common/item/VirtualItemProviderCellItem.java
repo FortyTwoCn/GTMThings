@@ -2,12 +2,18 @@ package com.hepdd.gtmthings.common.item;
 
 import net.minecraft.world.item.ItemStack;
 
+import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.items.storage.CreativeCellItem;
 import appeng.util.ConfigInventory;
 import com.hepdd.gtmthings.data.CustomItems;
+import com.hepdd.gtmthings.data.GTMTDataComponents;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Set;
 
 public final class VirtualItemProviderCellItem extends CreativeCellItem {
 
@@ -16,52 +22,43 @@ public final class VirtualItemProviderCellItem extends CreativeCellItem {
     }
 
     @Override
-    public ConfigInventory getConfigInventory(ItemStack is) {
-        Holder holder = new Holder(is);
-        holder.inv = new VirtualConfigInventory(63, holder::save);
-        holder.load();
-        return holder.inv;
+    public ConfigInventory getConfigInventory(ItemStack stack) {
+        Holder holder = new Holder(stack);
+        holder.inventory = new VirtualConfigInventory(holder::save);
+        holder.inventory.readFromList(stack.getOrDefault(AEComponents.STORAGE_CELL_CONFIG_INV, List.of()));
+        return holder.inventory;
     }
 
-    private static class Holder {
+    private static final class Holder {
 
         private final ItemStack stack;
-        private ConfigInventory inv;
+        private ConfigInventory inventory;
 
-        Holder(ItemStack stack) {
+        private Holder(ItemStack stack) {
             this.stack = stack;
         }
 
-        void load() {
-            if (stack.hasTag()) {
-                inv.readFromChildTag(stack.getOrCreateTag(), "list");
-            }
-        }
-
-        void save() {
-            inv.writeToChildTag(stack.getOrCreateTag(), "list");
+        private void save() {
+            stack.set(AEComponents.STORAGE_CELL_CONFIG_INV, inventory.toList());
         }
     }
 
-    private static class VirtualConfigInventory extends ConfigInventory {
+    private static final class VirtualConfigInventory extends ConfigInventory {
 
-        private VirtualConfigInventory(int size, @Nullable Runnable listener) {
-            super(null, Mode.CONFIG_TYPES, size, listener, false);
+        private VirtualConfigInventory(Runnable listener) {
+            super(Set.of(AEKeyType.items()), null, Mode.CONFIG_TYPES, 63, listener, false);
         }
 
+        @Override
         public void setStack(int slot, @Nullable GenericStack stack) {
             if (stack == null) {
                 super.setStack(slot, null);
-            } else if (stack.what() instanceof AEItemKey itemKey && itemKey.getItem() == CustomItems.VIRTUAL_ITEM_PROVIDER.asItem() && itemKey.hasTag()) {
-                boolean typesOnly = this.mode == Mode.CONFIG_TYPES;
-                itemKey.getTag().putBoolean("marked", true);
-                if (typesOnly && stack.amount() != 0L) {
-                    stack = new GenericStack(itemKey, 0L);
-                } else if (!typesOnly && stack.amount() <= 0L) {
-                    stack = null;
-                }
-
-                super.setStack(slot, stack);
+            } else if (stack.what() instanceof AEItemKey key && key.getItem() == CustomItems.VIRTUAL_ITEM_PROVIDER.asItem()) {
+                ItemStack provider = key.toStack();
+                if (VirtualItemProviderBehavior.getVirtualItem(provider).isEmpty()) return;
+                provider.set(GTMTDataComponents.MARKED, true);
+                // AE keys are immutable; change a copy to preserve the network's key hash and identity.
+                super.setStack(slot, new GenericStack(AEItemKey.of(provider), 0));
             }
         }
     }

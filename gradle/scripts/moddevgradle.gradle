@@ -1,15 +1,12 @@
-mixin {
-//    add sourceSets.main, "${mod_id}.refmap.json"
-//    config "${mod_id}.mixins.json"
-}
-
-legacyForge {
-    version = "${minecraft_version}-${forge_version}"
+neoForge {
+    version = neoforge_version
 
     parchment {
         minecraftVersion = parchment_minecraft_version
         mappingsVersion = parchment_mappings_version
     }
+
+    addModdingDependenciesTo(sourceSets.gameTest)
 
     runs {
         client {
@@ -21,8 +18,24 @@ legacyForge {
 
         server {
             server()
+            gameDirectory.set(file('run/server'))
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gameTest
+            gameDirectory.set(file('run/gametest'))
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        smokeClient {
+            client()
+            sourceSet = sourceSets.gameTest
+            jvmArgument '-Xmx4G'
+            programArguments.addAll('--username', 'PortTester', '--quickPlaySingleplayer', 'port-smoke', '--width', '1280', '--height', '800')
+            systemProperty 'gtmthings.portSmoke', 'true'
         }
 
         data {
@@ -36,7 +49,7 @@ legacyForge {
         }
 
         configureEach {
-            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            systemProperty 'neoforge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.INFO
         }
     }
@@ -44,6 +57,7 @@ legacyForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
+            sourceSet(sourceSets.gameTest)
         }
     }
 

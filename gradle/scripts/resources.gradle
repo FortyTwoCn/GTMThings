@@ -9,7 +9,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_url                 : mod_url,
             mod_issue_tracker       : mod_issue_tracker,
             gtceu_version           : gtceu_version,
-            forge_version           : forge_version,
+            neoforge_version        : neoforge_version,
             minecraft_version       : minecraft_version,
             ae2_version             : ae2_version
     ]
@@ -19,4 +19,4 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
     into "build/generated/sources/modMetadata"
 }
 sourceSets.main.resources.srcDir generateModMetadata
-legacyForge.ideSyncTask generateModMetadata
+neoForge.ideSyncTask generateModMetadata

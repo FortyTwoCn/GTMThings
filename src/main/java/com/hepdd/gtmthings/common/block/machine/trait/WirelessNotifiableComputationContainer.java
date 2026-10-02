@@ -1,217 +1,80 @@
 package com.hepdd.gtmthings.common.block.machine.trait;
 
-import com.gregtechceu.gtceu.GTCEu;
 import com.gregtechceu.gtceu.api.capability.IOpticalComputationProvider;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.feature.IRecipeLogicMachine;
-import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
-import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
-import com.gregtechceu.gtceu.api.machine.trait.MachineTrait;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableComputationContainer;
+import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableComputationContainer;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 
 import com.hepdd.gtmthings.common.block.machine.multiblock.part.computation.WirelessOpticalComputationHatchMachine;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 public class WirelessNotifiableComputationContainer extends NotifiableComputationContainer {
 
-    private int currentOutputCwu = 0, lastOutputCwu = 0;
-
-    public WirelessNotifiableComputationContainer(MetaMachine machine, IO handlerIO, boolean transmitter) {
-        super(machine, handlerIO, transmitter);
+    public WirelessNotifiableComputationContainer(IO io, boolean transmitter) {
+        super(io, transmitter);
     }
 
-    @Override
-    public int requestCWUt(int cwut, boolean simulate, @NotNull Collection<IOpticalComputationProvider> seen) {
-        var latestTimeStamp = getMachine().getOffsetTimer();
-        if (lastTimeStamp < latestTimeStamp) {
-            lastOutputCwu = currentOutputCwu;
-            currentOutputCwu = 0;
-            lastTimeStamp = latestTimeStamp;
-        }
-
-        seen.add(this);
-        if (handlerIO == IO.IN) {
-            if (isTransmitter()) {
-                // Ask the Multiblock controller, which *should* be an IOpticalComputationProvider
-                if (machine instanceof IOpticalComputationProvider provider) {
-                    return provider.requestCWUt(cwut, simulate, seen);
-                } else if (machine instanceof IMultiPart part) {
-                    if (part.getControllers().isEmpty()) {
-                        return 0;
-                    }
-                    for (IMultiController controller : part.getControllers()) {
-                        if (controller instanceof IOpticalComputationProvider provider) {
-                            return provider.requestCWUt(cwut, simulate, seen);
-                        }
-                        for (MachineTrait trait : controller.self().getTraits()) {
-                            if (trait instanceof IOpticalComputationProvider provider) {
-                                return provider.requestCWUt(cwut, simulate, seen);
-                            }
-                        }
-                    }
-                    GTCEu.LOGGER
-                            .error("NotifiableComputationContainer could request CWU/t from its machine's controller!");
-                    return 0;
-                } else {
-                    GTCEu.LOGGER.error("NotifiableComputationContainer could request CWU/t from its machine!");
-                    return 0;
-                }
-            } else {
-                // Ask the attached Transmitter hatch, if it exists
-                IOpticalComputationProvider provider = getOpticalNetProvider();
-                if (provider == null) return 0;
-                return provider.requestCWUt(cwut, simulate, seen);
-            }
-        } else {
-            lastOutputCwu = lastOutputCwu - cwut;
-            return Math.min(lastOutputCwu, cwut);
-        }
-    }
-
-    @Override
-    public int getMaxCWUt(@NotNull Collection<IOpticalComputationProvider> seen) {
-        seen.add(this);
-        if (handlerIO == IO.IN) {
-            if (isTransmitter()) {
-                // Ask the Multiblock controller, which *should* be an IOpticalComputationProvider
-                if (machine instanceof IOpticalComputationProvider provider) {
-                    return provider.getMaxCWUt(seen);
-                } else if (machine instanceof IMultiPart part) {
-                    if (part.getControllers().isEmpty()) {
-                        return 0;
-                    }
-                    for (IMultiController controller : part.getControllers()) {
-                        if (!controller.isFormed()) {
-                            continue;
-                        }
-                        if (controller instanceof IOpticalComputationProvider provider) {
-                            return provider.getMaxCWUt(seen);
-                        }
-                        for (MachineTrait trait : controller.self().getTraits()) {
-                            if (trait instanceof IOpticalComputationProvider provider) {
-                                return provider.getMaxCWUt(seen);
-                            }
-                        }
-                    }
-                    GTCEu.LOGGER.error(
-                            "NotifiableComputationContainer could not get maximum CWU/t from its machine's controller!");
-                    return 0;
-                } else {
-                    GTCEu.LOGGER.error("NotifiableComputationContainer could not get maximum CWU/t from its machine!");
-                    return 0;
-                }
-            } else {
-                // Ask the attached Transmitter hatch, if it exists
-                IOpticalComputationProvider provider = getOpticalNetProvider();
-                if (provider == null) return 0;
-                return provider.getMaxCWUt(seen);
-            }
-        } else {
-            return lastOutputCwu;
-        }
-    }
-
-    @Override
-    public boolean canBridge(@NotNull Collection<IOpticalComputationProvider> seen) {
-        seen.add(this);
-        if (handlerIO == IO.IN) {
-            if (isTransmitter()) {
-                // Ask the Multiblock controller, which *should* be an IOpticalComputationProvider
-                if (machine instanceof IOpticalComputationProvider provider) {
-                    return provider.canBridge(seen);
-                } else if (machine instanceof IMultiPart part) {
-                    if (part.getControllers().isEmpty()) {
-                        return false;
-                    }
-                    for (IMultiController controller : part.getControllers()) {
-                        if (!controller.isFormed()) {
-                            continue;
-                        }
-                        if (controller instanceof IOpticalComputationProvider provider) {
-                            return provider.canBridge(seen);
-                        }
-                        for (MachineTrait trait : controller.self().getTraits()) {
-                            if (trait instanceof IOpticalComputationProvider provider) {
-                                return provider.canBridge(seen);
-                            }
-                        }
-                    }
-                    GTCEu.LOGGER.error(
-                            "NotifiableComputationContainer could not test bridge status of its machine's controller!");
-                    return false;
-                } else {
-                    GTCEu.LOGGER.error("NotifiableComputationContainer could not test bridge status of its machine!");
-                    return false;
-                }
-            } else {
-                // Ask the attached Transmitter hatch, if it exists
-                IOpticalComputationProvider provider = getOpticalNetProvider();
-                if (provider == null) return true; // nothing found, so don't report a problem, just pass quietly
-                return provider.canBridge(seen);
-            }
-        } else {
-            return false;
-        }
-    }
-
-    @Override
-    public List<Integer> handleRecipeInner(IO io, GTRecipe recipe, List<Integer> left,
-                                           boolean simulate) {
-        IOpticalComputationProvider provider = getOpticalNetProvider();
-        if (provider == null) return left;
-
-        int sum = left.stream().reduce(0, Integer::sum);
-        if (io == IO.IN) {
-            int availableCWUt = requestCWUt(Integer.MAX_VALUE, true);
-            if (availableCWUt >= sum) {
-                if (recipe.data.getBoolean("duration_is_total_cwu")) {
-                    int drawn = provider.requestCWUt(availableCWUt, simulate);
-                    if (!simulate) {
-                        if (machine instanceof IRecipeLogicMachine rlm) {
-                            // first, remove the progress the recipe logic adds.
-                            rlm.getRecipeLogic().setProgress(rlm.getRecipeLogic().getProgress() - 1 + drawn);
-                            // rlm.getRecipeLogic().progress -= 1;
-                            // rlm.getRecipeLogic().progress += drawn;
-                        } else if (machine instanceof IMultiPart multiPart) {
-                            for (IMultiController controller : multiPart.getControllers()) {
-                                if (controller instanceof IRecipeLogicMachine rlm) {
-                                    rlm.getRecipeLogic().setProgress(rlm.getRecipeLogic().getProgress() - 1 + drawn);
-                                    // rlm.getRecipeLogic().progress -= 1;
-                                    // rlm.getRecipeLogic().progress += drawn;
-                                }
-                            }
-                        }
-                    }
-                    sum -= drawn;
-                } else {
-                    sum -= provider.requestCWUt(sum, simulate);
-                }
-            }
-        } else if (io == IO.OUT) {
-            int canInput = this.getMaxCWUt() - this.lastOutputCwu;
-            if (!simulate) {
-                this.currentOutputCwu = Math.min(canInput, sum);
-            }
-            sum = sum - canInput;
-        }
-        return sum <= 0 ? null : Collections.singletonList(sum);
-    }
-
-    @Nullable
-    private IOpticalComputationProvider getOpticalNetProvider() {
-        if (machine instanceof WirelessOpticalComputationHatchMachine woc && woc.getTransmitterPos() != null) {
-            var transmitterMachine = MetaMachine.getMachine(machine.getLevel(), woc.getTransmitterPos());
-            if (transmitterMachine instanceof WirelessOpticalComputationHatchMachine transmitter) {
-                return transmitter.getComputationContainer();
-            }
-        }
+    private IOpticalComputationProvider linkedProvider() {
+        var receiver = (WirelessOpticalComputationHatchMachine) getMachine();
+        var pos = receiver.getTransmitterPos();
+        var level = receiver.getLevel();
+        if (pos == null || level == null || !level.hasChunkAt(pos)) return null;
+        if (MetaMachine.getMachine(level, pos) instanceof WirelessOpticalComputationHatchMachine sender && sender.isTransmitter() && receiver.getBlockPos().equals(sender.getReceiverPos()) && sender.isFormed())
+            return sender.getComputationContainer();
         return null;
+    }
+
+    @Override
+    public int requestCWUt(int amount, boolean simulate, Collection<IOpticalComputationProvider> seen) {
+        if (seen.contains(this) || amount <= 0) return 0;
+        if (isTransmitter()) return super.requestCWUt(amount, simulate, seen);
+        seen.add(this);
+        var provider = linkedProvider();
+        return provider == null ? 0 : provider.requestCWUt(amount, simulate, seen);
+    }
+
+    @Override
+    public int getMaxCWUt(Collection<IOpticalComputationProvider> seen) {
+        if (seen.contains(this)) return 0;
+        if (isTransmitter()) return super.getMaxCWUt(seen);
+        seen.add(this);
+        var provider = linkedProvider();
+        return provider == null ? 0 : provider.getMaxCWUt(seen);
+    }
+
+    @Override
+    public boolean canBridge(Collection<IOpticalComputationProvider> seen) {
+        if (seen.contains(this)) return false;
+        if (isTransmitter()) return super.canBridge(seen);
+        seen.add(this);
+        var provider = linkedProvider();
+        return provider == null || provider.canBridge(seen);
+    }
+
+    @Override
+    public IOpticalComputationProvider getComputationProvider() {
+        return isTransmitter() ? super.getComputationProvider() : linkedProvider();
+    }
+
+    @Override
+    public List<Integer> handleRecipeInner(IO io, GTRecipe recipe, List<Integer> left, boolean simulate) {
+        if (io != IO.IN || isTransmitter()) return left;
+        long required = left.stream().mapToLong(Integer::longValue).sum();
+        if (required > Integer.MAX_VALUE || required < 0) return left;
+        int available = requestCWUt(Integer.MAX_VALUE, true);
+        if (available < required) return left;
+        boolean total = recipe != null && recipe.data.getBoolean("duration_is_total_cwu");
+        int drawn = requestCWUt(total ? available : (int) required, simulate);
+        if (total && !simulate) {
+            var receiver = (WirelessOpticalComputationHatchMachine) getMachine();
+            for (var controller : receiver.getControllers()) {
+                if (controller instanceof IRecipeLogicMachine logic) logic.getRecipeLogic().setProgressDelta(drawn - 1);
+            }
+        }
+        return drawn >= required ? List.of() : List.of((int) required - drawn);
     }
 }

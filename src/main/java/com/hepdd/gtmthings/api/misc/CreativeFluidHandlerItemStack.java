@@ -3,49 +3,67 @@ package com.hepdd.gtmthings.api.misc;
 import com.gregtechceu.gtceu.api.capability.IThermalFluidHandlerItemStack;
 
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.templates.FluidHandlerItemStack;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
 
+import com.hepdd.gtmthings.common.item.CreativeFluidStats;
 import org.jetbrains.annotations.NotNull;
 
-public class CreativeFluidHandlerItemStack extends FluidHandlerItemStack implements IThermalFluidHandlerItemStack {
+/** Infinite source and sink. Neither simulation nor draining changes the selected fluid. */
+public final class CreativeFluidHandlerItemStack implements IFluidHandlerItem, IThermalFluidHandlerItemStack {
 
-    /**
-     * @param container The container itemStack, data is stored on it directly as NBT.
-     * @param capacity  The maximum capacity of this fluid tank.
-     */
-    public CreativeFluidHandlerItemStack(@NotNull ItemStack container, int capacity, FluidStack fluidStack) {
-        super(container, capacity);
-        this.setFluid(fluidStack);
+    private final ItemStack container;
+
+    public CreativeFluidHandlerItemStack(ItemStack container) {
+        this.container = container;
+    }
+
+    private int capacity() {
+        return CreativeFluidStats.getAccurate(container) ? CreativeFluidStats.getCapacity(container) : Integer.MAX_VALUE;
     }
 
     @Override
-    public @NotNull FluidStack drain(FluidStack resource, FluidAction action) {
-        if (resource.isFluidEqual(this.getFluid())) {
-            if (capacity == Integer.MAX_VALUE) {
-                return resource.copy();
-            } else {
-                FluidStack fluidStack = resource.copy();
-                fluidStack.setAmount(Math.min(resource.getAmount(), capacity));
-                return fluidStack;
-            }
-        } else {
-            return FluidStack.EMPTY;
-        }
+    public @NotNull ItemStack getContainer() {
+        return container;
     }
 
     @Override
-    public int fill(FluidStack resource, FluidAction doFill) {
+    public int getTanks() {
+        return 1;
+    }
+
+    @Override
+    public @NotNull FluidStack getFluidInTank(int tank) {
+        FluidStack fluid = CreativeFluidStats.getStored(container);
+        return fluid.isEmpty() ? FluidStack.EMPTY : fluid.copyWithAmount(capacity());
+    }
+
+    @Override
+    public int getTankCapacity(int tank) {
+        return capacity();
+    }
+
+    @Override
+    public boolean isFluidValid(int tank, FluidStack stack) {
+        return !stack.isEmpty();
+    }
+
+    @Override
+    public int fill(FluidStack resource, FluidAction action) {
         return resource.getAmount();
     }
 
     @Override
-    public @NotNull FluidStack drain(int maxDrain, FluidAction action) {
-        FluidStack contained = this.getFluid();
-        if (contained.isEmpty()) return FluidStack.EMPTY;
-        FluidStack drained = contained.copy();
-        drained.setAmount(Math.min(maxDrain, capacity));
-        return drained;
+    public @NotNull FluidStack drain(FluidStack resource, FluidAction action) {
+        if (!FluidStack.isSameFluidSameComponents(resource, CreativeFluidStats.getStored(container))) return FluidStack.EMPTY;
+        return drain(resource.getAmount(), action);
+    }
+
+    @Override
+    public @NotNull FluidStack drain(int amount, FluidAction action) {
+        if (amount <= 0) return FluidStack.EMPTY;
+        FluidStack fluid = CreativeFluidStats.getStored(container);
+        return fluid.isEmpty() ? FluidStack.EMPTY : fluid.copyWithAmount(Math.min(amount, capacity()));
     }
 
     @Override

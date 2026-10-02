@@ -2,6 +2,7 @@ package com.hepdd.gtmthings.data;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -25,7 +26,7 @@ public class WirelessEnergySavaedData extends SavedData {
     public static WirelessEnergySavaedData INSTANCE;
 
     public static WirelessEnergySavaedData getOrCreate(ServerLevel serverLevel) {
-        return serverLevel.getDataStorage().computeIfAbsent(WirelessEnergySavaedData::new, WirelessEnergySavaedData::new, "gtceu_wireless_energy");
+        return serverLevel.getDataStorage().computeIfAbsent(new SavedData.Factory<>(WirelessEnergySavaedData::new, (tag, lookup) -> new WirelessEnergySavaedData(tag), null), "gtceu_wireless_energy");
     }
 
     public final Map<UUID, WirelessEnergyContainer> containerMap = new HashMap<>();
@@ -41,7 +42,7 @@ public class WirelessEnergySavaedData extends SavedData {
     }
 
     @Override
-    public @NotNull CompoundTag save(@NotNull CompoundTag compoundTag) {
+    public @NotNull CompoundTag save(@NotNull CompoundTag compoundTag, HolderLookup.Provider registries) {
         ListTag allEnergy = new ListTag();
         for (WirelessEnergyContainer container : containerMap.values()) {
             CompoundTag engTag = toTag(container);
@@ -82,7 +83,6 @@ public class WirelessEnergySavaedData extends SavedData {
 
     private static GlobalPos readGlobalPos(String dimension, long pos) {
         if (dimension.isEmpty()) return null;
-        if (pos == 0) return null;
         ResourceLocation key = ResourceLocation.tryParse(dimension);
         if (key == null) return null;
         return GlobalPos.of(ResourceKey.create(Registries.DIMENSION, key), BlockPos.of(pos));

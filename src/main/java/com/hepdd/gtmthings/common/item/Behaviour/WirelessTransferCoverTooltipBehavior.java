@@ -3,12 +3,12 @@ package com.hepdd.gtmthings.common.item.Behaviour;
 import com.gregtechceu.gtceu.api.item.component.IAddInformation;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.Level;
 
+import com.hepdd.gtmthings.utils.ItemData;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,9 +26,9 @@ public class WirelessTransferCoverTooltipBehavior implements IAddInformation {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltipComponents,
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltipComponents,
                                 TooltipFlag isAdvanced) {
-        var tag = stack.getTag();
+        var tag = ItemData.read(stack);
         if (tag != null) {
             String itemId = tag.getString("blockid");
             String pos = tag.getString("pos");

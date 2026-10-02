@@ -13,10 +13,9 @@ public interface IWirelessEnergyContainerHolder extends IBindable {
 
     @Nullable
     default WirelessEnergyContainer getWirelessEnergyContainer() {
-        if (getUUID() != null && getWirelessEnergyContainerCache() == null) {
-            WirelessEnergyContainer container = WirelessEnergyContainer.getOrCreateContainer(getUUID());
-            setWirelessEnergyContainerCache(container);
-        }
-        return getWirelessEnergyContainerCache();
+        if (getUUID() == null || com.hepdd.gtmthings.data.WirelessEnergySavaedData.INSTANCE == null) return null;
+        var container = WirelessEnergyContainer.getOrCreateContainer(getUUID());
+        if (container != getWirelessEnergyContainerCache()) setWirelessEnergyContainerCache(container);
+        return container;
     }
 }

@@ -13,15 +13,17 @@ import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
-import java.util.WeakHashMap;
 
 @Getter
 public class WirelessEnergyContainer {
 
     public static boolean observed;
 
-    public static final WeakHashMap<MetaMachine, ITransferData> TRANSFER_DATA = new WeakHashMap<>();
+    public static final Map<MetaMachine, ITransferData> TRANSFER_DATA = new HashMap<>();
+    public static Map<MetaMachine, ITransferData> TRANSFER_SNAPSHOT = Map.of();
     public static MinecraftServer server;
 
     public static WirelessEnergyContainer getOrCreateContainer(UUID uuid) {
@@ -63,7 +65,7 @@ public class WirelessEnergyContainer {
         if (machine != null) {
             energyStat.update(BigInteger.valueOf(change), server.getTickCount());
         }
-        if (observed && machine != null) {
+        if (machine != null) {
             TRANSFER_DATA.put(machine, new BasicTransferData(uuid, change, machine));
         }
         return change;
@@ -78,7 +80,7 @@ public class WirelessEnergyContainer {
         if (machine != null) {
             energyStat.update(BigInteger.valueOf(change).negate(), server.getTickCount());
         }
-        if (observed && machine != null) {
+        if (machine != null) {
             TRANSFER_DATA.put(machine, new BasicTransferData(uuid, -change, machine));
         }
         return change;

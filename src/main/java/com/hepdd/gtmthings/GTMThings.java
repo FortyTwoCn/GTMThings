@@ -1,53 +1,35 @@
 package com.hepdd.gtmthings;
 
-import com.gregtechceu.gtceu.api.GTCEuAPI;
-import com.gregtechceu.gtceu.api.cover.CoverDefinition;
-import com.gregtechceu.gtceu.api.machine.MachineDefinition;
-import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
-
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.Mod;
 
 import com.hepdd.gtmthings.config.ConfigHolder;
 import com.hepdd.gtmthings.data.*;
 
 import static com.hepdd.gtmthings.common.registry.GTMTRegistration.GTMTHINGS_REGISTRATE;
-import static net.minecraft.resources.ResourceLocation.tryBuild;
 
 @Mod(GTMThings.MOD_ID)
 public class GTMThings {
 
     public static final String MOD_ID = "gtmthings";
+    public static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(MOD_ID);
     public static final String NAME = "GTM Things";
 
     public static ResourceLocation id(String name) {
-        return tryBuild(MOD_ID, name);
+        return ResourceLocation.fromNamespaceAndPath(MOD_ID, name);
     }
 
-    public GTMThings(FMLJavaModLoadingContext context) {
-        IEventBus modEventBus = context.getModEventBus();
+    public GTMThings(IEventBus modEventBus) {
         ConfigHolder.init();
+        GTMTDataComponents.init(modEventBus);
         GTMTHINGS_REGISTRATE.registerEventListeners(modEventBus);
-        modEventBus.addGenericListener(GTRecipeType.class, this::registerRecipeTypes);
-        modEventBus.addGenericListener(MachineDefinition.class, this::registerMachines);
-        modEventBus.addGenericListener(CoverDefinition.class, this::registerCovers);
-    }
-
-    private void registerRecipeTypes(GTCEuAPI.RegisterEvent<ResourceLocation, GTRecipeType> event) {
+        CreativeModeTabs.init();
         GTMTRecipeTypes.init();
-    }
-
-    private void registerMachines(GTCEuAPI.RegisterEvent<ResourceLocation, MachineDefinition> event) {
+        GTMTCovers.init();
         CreativeMachines.init();
         WirelessMachines.init();
         CustomMachines.init();
-    }
-
-    private void registerCovers(GTCEuAPI.RegisterEvent<ResourceLocation, CoverDefinition> event) {
-        CreativeModeTabs.init();
-        GTMTCovers.init();
         CustomItems.init();
     }
 }

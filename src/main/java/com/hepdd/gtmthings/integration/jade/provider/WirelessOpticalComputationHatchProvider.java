@@ -1,8 +1,6 @@
 package com.hepdd.gtmthings.integration.jade.provider;
 
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
-import com.gregtechceu.gtceu.integration.jade.provider.CapabilityBlockProvider;
-import com.gregtechceu.gtceu.utils.FormattingUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -21,10 +19,10 @@ import snownee.jade.api.config.IPluginConfig;
 
 import static net.minecraft.resources.ResourceLocation.tryBuild;
 
-public class WirelessOpticalComputationHatchProvider extends CapabilityBlockProvider<IGTMTJadeIF> {
+public class WirelessOpticalComputationHatchProvider extends MachineDataProvider<IGTMTJadeIF> {
 
     public WirelessOpticalComputationHatchProvider() {
-        super(tryBuild(GTMThings.MOD_ID, FormattingUtil.toLowerCaseUnder("wireless_energy_hatch_provider")));
+        super(tryBuild(GTMThings.MOD_ID, "wireless_optical_computation_hatch_provider"));
     }
 
     @Override

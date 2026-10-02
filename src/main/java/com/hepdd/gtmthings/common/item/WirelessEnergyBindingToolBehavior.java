@@ -26,7 +26,7 @@ public class WirelessEnergyBindingToolBehavior implements IInteractionItem {
 
     @Override
     public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        if (context.getLevel().isClientSide()) return InteractionResult.PASS;
+        if (context.getPlayer() == null || context.getLevel().isClientSide()) return InteractionResult.PASS;
         if (ConfigHolder.INSTANCE.isWirelessRateEnable) {
             BlockPos pos = context.getClickedPos();
             long rate = getRate(context.getLevel(), pos);
@@ -54,13 +54,12 @@ public class WirelessEnergyBindingToolBehavior implements IInteractionItem {
                     }
                 }
             } else if (machine instanceof PowerSubstationMachine psm && psm.isFormed()) {
-                rate = psm.getEnergyInfo().capacity()
-                        .divide(BigInteger.valueOf(4096)).longValue();
+                rate = com.hepdd.gtmthings.utils.BigIntegerUtils.getLongValue(psm.getEnergyInfo().capacity().divide(BigInteger.valueOf(4096)));
             } else if (machine != null) {
                 // KubeJS and other generic multiblocks.
                 var energyContainer = GTCapabilityHelper.getEnergyContainer(level, pos, null);
                 if (energyContainer != null) {
-                    rate = energyContainer.getInputVoltage() * energyContainer.getInputAmperage();
+                    rate = com.hepdd.gtmthings.api.gui.EnergyConfigurationUI.capacity(energyContainer.getInputVoltage(), (int) Math.min(Integer.MAX_VALUE, energyContainer.getInputAmperage()), 1);
                 }
             }
         }

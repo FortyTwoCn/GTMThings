@@ -1,75 +1,63 @@
 package com.hepdd.gtmthings.common.block.machine.multiblock.part.appeng;
 
 import com.gregtechceu.gtceu.api.GTValues;
+import com.gregtechceu.gtceu.api.blockentity.BlockEntityCreationInfo;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
-import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
-import com.gregtechceu.gtceu.api.machine.feature.IInteractedMachine;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableFluidTank;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
-import com.gregtechceu.gtceu.common.machine.multiblock.part.DualHatchPartMachine;
-import com.gregtechceu.gtceu.integration.ae2.gui.widget.list.AEListGridWidget;
+import com.gregtechceu.gtceu.api.machine.TickableSubscription;
+import com.gregtechceu.gtceu.api.machine.feature.IMuiMachine;
+import com.gregtechceu.gtceu.api.machine.multiblock.part.TieredIOPartMachine;
+import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
+import com.gregtechceu.gtceu.api.sync_system.annotations.SyncToClient;
+import com.gregtechceu.gtceu.integration.ae2.gui.AEKeyStorageSyncHandler;
+import com.gregtechceu.gtceu.integration.ae2.gui.AEStackDisplayWidget;
+import com.gregtechceu.gtceu.integration.ae2.gui.ScrollPreservingGrid;
 import com.gregtechceu.gtceu.integration.ae2.machine.feature.IGridConnectedMachine;
 import com.gregtechceu.gtceu.integration.ae2.machine.trait.GridNodeHolder;
 import com.gregtechceu.gtceu.integration.ae2.utils.KeyStorage;
+import com.gregtechceu.gtceu.utils.FormattingUtil;
 
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 
-import appeng.api.config.Actionable;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEKey;
+import brachy.modularui.api.drawable.Text;
+import brachy.modularui.factory.PosGuiData;
+import brachy.modularui.screen.UISettings;
+import brachy.modularui.value.sync.BooleanSyncValue;
+import brachy.modularui.value.sync.DynamicLinkedSyncHandler;
+import brachy.modularui.value.sync.PanelSyncManager;
+import brachy.modularui.widget.ParentWidget;
+import brachy.modularui.widget.scroll.VerticalScrollData;
+import brachy.modularui.widgets.DynamicSyncedWidget;
+import brachy.modularui.widgets.layout.Flow;
 import com.hepdd.gtmthings.api.machine.trait.InaccessibleInfiniteHandler;
 import com.hepdd.gtmthings.api.machine.trait.InaccessibleInfiniteTank;
-import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
-import com.lowdragmc.lowdraglib.utils.Position;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.EnumSet;
 
-import javax.annotation.ParametersAreNonnullByDefault;
+public class MEOutputPartMachine extends TieredIOPartMachine implements IGridConnectedMachine, IMuiMachine {
 
-@ParametersAreNonnullByDefault
-@MethodsReturnNonnullByDefault
-public class MEOutputPartMachine extends DualHatchPartMachine implements IInteractedMachine, IGridConnectedMachine {
-
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(MEOutputPartMachine.class, DualHatchPartMachine.MANAGED_FIELD_HOLDER);
-
-    @Override
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
-
-    @DescSynced
-    @Getter
-    @Setter
-    protected boolean isOnline;
-    @Persisted
+    @SyncToClient
+    private boolean isOnline;
+    @SaveField
     protected final GridNodeHolder nodeHolder;
     protected final IActionSource actionSource;
-    @Getter
-    protected Object2LongOpenHashMap<AEKey> returnBuffer = new Object2LongOpenHashMap<>();
-    @Persisted
-    private KeyStorage internalBuffer;
-    @Persisted
-    private KeyStorage internalTankBuffer;
+    @SaveField
+    private final KeyStorage internalBuffer = new KeyStorage();
+    @SaveField
+    private final KeyStorage internalTankBuffer = new KeyStorage();
+    private TickableSubscription autoIOSubs;
 
-    public MEOutputPartMachine(IMachineBlockEntity holder) {
-        super(holder, GTValues.LuV, IO.OUT);
-        this.nodeHolder = createNodeHolder();
-        this.actionSource = IActionSource.ofMachine(nodeHolder.getMainNode()::getNode);
-    }
-
-    protected GridNodeHolder createNodeHolder() {
-        return new GridNodeHolder(this);
+    public MEOutputPartMachine(BlockEntityCreationInfo info) {
+        super(info, GTValues.LuV, IO.OUT);
+        var items = attachTrait(new InaccessibleInfiniteHandler(internalBuffer));
+        var fluids = attachTrait(new InaccessibleInfiniteTank(internalTankBuffer));
+        items.addChangedListener(this::updateInventorySubscription);
+        fluids.addChangedListener(this::updateInventorySubscription);
+        nodeHolder = attachTrait(new GridNodeHolder(this));
+        actionSource = IActionSource.ofMachine(getMainNode()::getNode);
     }
 
     @Override
@@ -78,85 +66,91 @@ public class MEOutputPartMachine extends DualHatchPartMachine implements IIntera
     }
 
     @Override
-    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
-        IGridConnectedMachine.super.onMainNodeStateChanged(reason);
-        this.updateInventorySubscription();
+    public boolean isOnline() {
+        return isOnline;
     }
 
     @Override
-    protected void updateInventorySubscription() {
-        if (shouldSubscribe()) {
-            autoIOSubs = subscribeServerTick(autoIOSubs, this::autoIO);
-        } else if (autoIOSubs != null) {
-            autoIOSubs.unsubscribe();
-            autoIOSubs = null;
+    public void setOnline(boolean online) {
+        if (online != isOnline) {
+            isOnline = online;
+            syncDataHolder.markClientSyncFieldDirty("isOnline");
         }
     }
 
-    /////////////////////////////////
-    // ***** Machine LifeCycle ****//
-    /////////////////////////////////
-
     @Override
-    protected NotifiableItemStackHandler createInventory(Object... args) {
-        this.internalBuffer = new KeyStorage();
-        return new InaccessibleInfiniteHandler(this, internalBuffer);
-    }
-
-    @Override
-    protected NotifiableFluidTank createTank(int initialCapacity, int slots, Object... args) {
-        this.internalTankBuffer = new KeyStorage();
-        return new InaccessibleInfiniteTank(this, internalTankBuffer);
+    public void onMainNodeStateChanged(IGridNodeListener.State state) {
+        IGridConnectedMachine.super.onMainNodeStateChanged(state);
+        updateInventorySubscription();
     }
 
     @Override
     public void onLoad() {
         super.onLoad();
-        if (isRemote()) return;
+        scheduleForNextServerTick(this::updateInventorySubscription);
     }
 
     @Override
-    public void onMachineRemoved() {
+    public void onUnload() {
+        if (autoIOSubs != null) {
+            autoIOSubs.unsubscribe();
+            autoIOSubs = null;
+        }
+        super.onUnload();
+    }
+
+    private void updateInventorySubscription() {
+        if (getLevel() == null || isRemote()) return;
+        if (isWorkingEnabled() && isOnline && (!internalBuffer.isEmpty() || !internalTankBuffer.isEmpty()))
+            autoIOSubs = subscribeServerTick(autoIOSubs, this::autoIO);
+        else if (autoIOSubs != null) {
+            autoIOSubs.unsubscribe();
+            autoIOSubs = null;
+        }
+    }
+
+    private void autoIO() {
+        if (!shouldSyncME()) return;
+        if (updateMEStatus()) flushBuffers();
+        updateInventorySubscription();
+    }
+
+    private void flushBuffers() {
         var grid = getMainNode().getGrid();
-        if (grid != null) {
-            if (!internalBuffer.isEmpty()) {
-                for (var entry : internalBuffer) {
-                    grid.getStorageService().getInventory().insert(entry.getKey(), entry.getLongValue(),
-                            Actionable.MODULATE, actionSource);
-                }
-            }
-            if (!internalTankBuffer.isEmpty()) {
-                for (var entry : internalTankBuffer) {
-                    grid.getStorageService().getInventory().insert(entry.getKey(), entry.getLongValue(),
-                            Actionable.MODULATE, actionSource);
-                }
-            }
-        }
-    }
-
-    /////////////////////////////////
-    // ********** Sync ME *********//
-    /////////////////////////////////
-
-    protected boolean shouldSubscribe() {
-        return isWorkingEnabled() && isOnline() && (!internalBuffer.storage.isEmpty() || !internalTankBuffer.storage.isEmpty());
+        if (grid == null) return;
+        internalBuffer.insertInventory(grid.getStorageService().getInventory(), actionSource);
+        internalTankBuffer.insertInventory(grid.getStorageService().getInventory(), actionSource);
     }
 
     @Override
-    protected void autoIO() {
-        if (!this.shouldSyncME()) return;
-        if (this.updateMEStatus()) {
-            var grid = getMainNode().getGrid();
-            if (grid != null) {
-                if (!internalBuffer.isEmpty()) {
-                    internalBuffer.insertInventory(grid.getStorageService().getInventory(), actionSource);
-                }
-                if (!internalTankBuffer.isEmpty()) {
-                    internalTankBuffer.insertInventory(grid.getStorageService().getInventory(), actionSource);
-                }
-            }
-            this.updateInventorySubscription();
+    public void onMachineDestroyed() {
+        // Keep pending output on the dropped machine, including when the ME network is full or absent.
+        super.onMachineDestroyed();
+    }
+
+    @Override
+    public void collectImplicitComponents(net.minecraft.core.component.DataComponentMap.Builder components) {
+        super.collectImplicitComponents(components);
+        var tag = new net.minecraft.nbt.CompoundTag();
+        if (getLevel() != null) {
+            tag.put("items", internalBuffer.serializeNBT(getLevel().registryAccess()));
+            tag.put("fluids", internalTankBuffer.serializeNBT(getLevel().registryAccess()));
         }
+        components.set(com.hepdd.gtmthings.data.GTMTDataComponents.ME_BUFFER, net.minecraft.world.item.component.CustomData.of(tag));
+    }
+
+    @Override
+    protected void applyImplicitComponents(DataComponentInput input) {
+        super.applyImplicitComponents(input);
+        var saved = input.get(com.hepdd.gtmthings.data.GTMTDataComponents.ME_BUFFER);
+        if (saved == null || getLevel() == null) return;
+        var tag = saved.copyTag();
+        internalBuffer.storage.clear();
+        internalTankBuffer.storage.clear();
+        internalBuffer.deserializeNBT(getLevel().registryAccess(), tag.getList("items", net.minecraft.nbt.Tag.TAG_COMPOUND));
+        internalTankBuffer.deserializeNBT(getLevel().registryAccess(), tag.getList("fluids", net.minecraft.nbt.Tag.TAG_COMPOUND));
+        markAsChanged();
+        updateInventorySubscription();
     }
 
     @Override
@@ -166,20 +160,35 @@ public class MEOutputPartMachine extends DualHatchPartMachine implements IIntera
     }
 
     @Override
-    public boolean isWorkingEnabled() {
-        return true;
+    public void setWorkingEnabled(boolean working) {
+        super.setWorkingEnabled(working);
+        updateInventorySubscription();
     }
 
     @Override
-    public Widget createUIWidget() {
-        WidgetGroup group = new WidgetGroup(new Position(0, 0));
-        // ME Network status
-        group.addWidget(new LabelWidget(0, 0, () -> this.isOnline ?
-                "gtceu.gui.me_network.online" :
-                "gtceu.gui.me_network.offline"));
+    public void buildMainUI(ParentWidget<?> main, PosGuiData data, PanelSyncManager manager, UISettings settings) {
+        BooleanSyncValue online = new BooleanSyncValue(this::isOnline);
+        manager.syncValue("online", online);
+        var column = Flow.column().widthRel(1).coverChildrenHeight().padding(5).childPadding(5);
+        column.child(Text.dynamic(() -> Component.translatable(online.getBoolValue() ? "gtceu.gui.me_network.online" : "gtceu.gui.me_network.offline")).asWidget());
+        addBufferUI(column, manager, "items", internalBuffer);
+        addBufferUI(column, manager, "fluids", internalTankBuffer);
+        main.child(column);
+    }
 
-        group.addWidget(new AEListGridWidget.Item(5, 20, 3, this.internalBuffer));
-        group.addWidget(new AEListGridWidget.Fluid(5, 80, 3, this.internalTankBuffer));
-        return group;
+    private void addBufferUI(Flow column, PanelSyncManager manager, String name, KeyStorage buffer) {
+        var storage = new AEKeyStorageSyncHandler(buffer);
+        manager.syncValue(name, storage);
+        int[] savedScroll = { 0 };
+        var dynamic = new DynamicLinkedSyncHandler<>(storage).widgetProvider((sync, value) -> {
+            var entries = value.getValue();
+            return new ScrollPreservingGrid(savedScroll).size(160, 65).scrollable(new VerticalScrollData())
+                    .gridOfSizeWidth(entries.size(), 1, (x, y, i) -> i < entries.size() ? Flow.row().coverChildrenHeight()
+                            .child(new AEStackDisplayWidget(entries, i))
+                            .child(Text.dynamic(() -> Component.literal(FormattingUtil.formatNumbers(entries.get(i).amount()) + " ")
+                                    .append(entries.get(i).what().getDisplayName())).asWidget().width(140)) :
+                            null);
+        });
+        column.child(new DynamicSyncedWidget<>().size(160, 65).syncHandler(dynamic));
     }
 }

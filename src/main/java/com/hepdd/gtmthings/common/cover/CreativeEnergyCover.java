@@ -8,15 +8,12 @@ import com.gregtechceu.gtceu.api.cover.CoverDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
 import com.gregtechceu.gtceu.api.machine.TieredEnergyMachine;
+import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
-import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -27,24 +24,16 @@ import static com.gregtechceu.gtceu.api.capability.GTCapabilityHelper.getEnergyC
 @MethodsReturnNonnullByDefault
 public class CreativeEnergyCover extends CoverBehavior {
 
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(CreativeEnergyCover.class,
-            CoverBehavior.MANAGED_FIELD_HOLDER);
-
     private TickableSubscription subscription;
 
-    @Persisted
+    @SaveField
     private long energyPerTick;
-    @Persisted
+    @SaveField
     private int tier;
-    @Persisted
+    @SaveField
     private int amperage;
-    @Persisted
+    @SaveField
     private long machineMaxEnergy;
-
-    @Override
-    public @NotNull ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
 
     public CreativeEnergyCover(CoverDefinition definition, ICoverable coverHolder, Direction attachedSide) {
         super(definition, coverHolder, attachedSide);
@@ -74,6 +63,15 @@ public class CreativeEnergyCover extends CoverBehavior {
     }
 
     @Override
+    public void onUnload() {
+        if (subscription != null) {
+            subscription.unsubscribe();
+            subscription = null;
+        }
+        super.onUnload();
+    }
+
+    @Override
     public void onRemoved() {
         super.onRemoved();
         if (subscription != null) {
@@ -98,7 +96,7 @@ public class CreativeEnergyCover extends CoverBehavior {
     }
 
     private void updateEnergy() {
-        var energyContainer = getEnergyContainer(coverHolder.getLevel(), coverHolder.getPos(), attachedSide);
+        var energyContainer = getEnergyContainer(coverHolder.getLevel(), coverHolder.getBlockPos(), attachedSide);
         if (energyContainer != null) {
             var changeStored = Math.min(this.machineMaxEnergy - energyContainer.getEnergyStored(), this.energyPerTick);
             if (changeStored <= 0) return;
@@ -109,6 +107,6 @@ public class CreativeEnergyCover extends CoverBehavior {
 
     @Nullable
     private MetaMachine getMachine() {
-        return MetaMachine.getMachine(coverHolder.getLevel(), coverHolder.getPos());
+        return MetaMachine.getMachine(coverHolder.getLevel(), coverHolder.getBlockPos());
     }
 }

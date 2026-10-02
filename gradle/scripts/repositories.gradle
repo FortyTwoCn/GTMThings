@@ -1,92 +1,48 @@
 repositories {
-    mavenLocal()
-    flatDir {
-        dir 'libs'
-    }
     mavenCentral()
     maven {
-        name = 'GTCEu Maven'
+        name = 'GTCEu'
         url = 'https://maven.gtceu.com'
-        content {
-            includeGroup 'com.gregtechceu.gtceu'
-        }
+        content { includeGroup 'com.gregtechceu.gtceu'; includeGroup 'brachy.modularui' }
     }
     maven {
-        url = "https://modmaven.dev"
+        name = 'Registrate'
+        url = 'https://mvn.devos.one/snapshots/'
+        content { includeGroup 'com.tterrag.registrate' }
     }
     maven {
-        url = "https://maven.firstdarkdev.xyz/snapshots/"
+        name = 'Configuration'
+        url = 'https://repo.repsy.io/mvn/toma/public'
+        content { includeGroup 'dev.toma.configuration' }
     }
     maven {
-        url = "https://maven.quiltmc.org/repository/release/"
+        name = 'AppliedEnergistics'
+        url = 'https://modmaven.dev'
+        content { includeGroup 'org.appliedenergistics' }
     }
     maven {
-        url = "https://maven.parchmentmc.org"
+        name = 'JEI'
+        url = 'https://maven.blamejared.com'
+        content { includeGroup 'mezz.jei' }
     }
     maven {
-        url = "https://cursemaven.com/"
-        content {
-            includeGroup "curse.maven"
-        }
+        name = 'EMI'
+        url = 'https://maven.terraformersmc.com/releases/'
+        content { includeGroup 'dev.emi' }
     }
     maven {
-        url = "https://maven.architectury.dev/"
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
     }
     maven {
-        url = "https://maven.saps.dev/releases/"
-        content {
-            includeGroup "dev.latvian.mods"
-            includeGroup "dev.ftb.mods"
-        }
+        name = 'FTB'
+        url = 'https://maven.ftb.dev/releases/'
+        content { includeGroup 'dev.ftb.mods' }
     }
     maven {
-        url = "https://maven.tterrag.com/"
-        content {
-            includeGroup("com.tterrag.registrate")
-        }
-    }
-    maven {
-        url = "https://maven.blamejared.com/"
-    }
-    maven {
-        url = "https://maven.teamresourceful.com/repository/maven-public/"
-    }
-    maven {
-        url = "https://maven.shadowsoffire.dev/releases"
-        content {
-            includeGroup "dev.shadowsoffire"
-        }
-    }
-    maven {
-        name = 'GeckoLib'
-        url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
-        content {
-            includeGroupByRegex("software\\.bernie.*")
-            includeGroup("com.eliotlash.mclib")
-        }
-    }
-    maven {
-        url = "https://maven.jt-dev.tech/releases/"
-    }
-    maven {
-        url = "https://mvnrepository.com/artifact/com.hollingsworth.ars_nouveau"
-    }
-    maven {
-        url = "https://maven.bawnorton.com/releases"
-    }
-    maven {
-        url = "https://maven.enjarai.dev/mirrors"
-    }
-    exclusiveContent { // FTB mods
-        forRepository { maven { url = "https://maven.ftb.dev/releases" } }
-        filter { includeGroup("dev.ftb.mods") }
-    }
-    maven {
-        name = "TerraformersMC"
-        url = "https://maven.terraformersmc.com/"
-    }
-    maven {
-        name 'FirstDarkDev'
-        url "https://maven.firstdarkdev.xyz/snapshots/"
+        name = 'Architectury'
+        url = 'https://maven.architectury.dev/'
+        content { includeGroup 'dev.architectury' }
     }
 }

@@ -2,12 +2,16 @@
   <a href="https://www.curseforge.com/minecraft/mc-mods/gtmthings"><img src="https://cf.way2muchnoise.eu/1104310.svg?badge_style=for_the_badge" alt="CurseForge"></a>
 </h1>
 
+当前工作树目标为 **Minecraft 1.21.1 / NeoForge / GTCEu 8.0 / Java 21**。
+依赖、原生 API 迁移、构建及验证说明见 [1.21.1 移植说明](PORTING_1_21.md)。
+下面的旧版本兼容表仅适用于原 1.20.1 Forge 发行版。
+
 | Mod Version             | GTM Version      |Status|
 |-------------------------|------------------|----|
 | ≤ 1.4.6                 | 1.6.4            |⛔️ End of Support  |
 | 1.4.7 ~ 1.5.2           | 7.0 Snapshot     |⚠️ Not Recommended|
 | 1.5.3                   | 7.0.0 ~ 7.0.2    |⛔️ End of Support|
-| ≥ 1.5.4                 | 7.1.0            |🟢 Currently Supported|
+| 1.5.4 起的 1.20.1 Forge 版 | 7.1.0         |旧版兼容信息|
 
 ## A README in English is available [here](README_EN.md)
 

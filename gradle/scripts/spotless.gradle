@@ -1,7 +1,7 @@
 spotless {
     encoding 'UTF-8'
     java {
-        target 'src/main/java/**/*.java'
+        target 'src/main/java/**/*.java', 'src/gametest/java/**/*.java'
         toggleOffOn()
         importOrderFile(file("$rootDir/gradle/spotless/spotless.importorder"))
         removeUnusedImports('cleanthat-javaparser-unnecessaryimport')

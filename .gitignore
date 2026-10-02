@@ -8,7 +8,7 @@ classes/
 bin/
 run/
 libs/
-/src/generated/
+/src/generated/resources/.cache/
 *.launch
 *.iml
 *.ipr

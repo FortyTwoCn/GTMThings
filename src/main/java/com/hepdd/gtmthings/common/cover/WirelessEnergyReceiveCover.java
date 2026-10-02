@@ -44,7 +44,6 @@ public class WirelessEnergyReceiveCover extends CoverBehavior implements IWirele
     private final long energyPerTick;
     private final int tier;
     private final int amperage;
-    private long machineMaxEnergy;
 
     public WirelessEnergyReceiveCover(CoverDefinition definition, ICoverable coverHolder, Direction attachedSide, int tier, int amperage) {
         super(definition, coverHolder, attachedSide);
@@ -90,6 +89,17 @@ public class WirelessEnergyReceiveCover extends CoverBehavior implements IWirele
     }
 
     @Override
+    public void onUnload() {
+        if (subscription != null) {
+            subscription.unsubscribe();
+            subscription = null;
+        }
+        machine = null;
+        WirelessEnergyContainerCache = null;
+        super.onUnload();
+    }
+
+    @Override
     public void onRemoved() {
         super.onRemoved();
         machine = null;
@@ -106,24 +116,22 @@ public class WirelessEnergyReceiveCover extends CoverBehavior implements IWirele
 
     private void updateEnergy() {
         if (getUUID() == null) return;
-        var energyContainer = getEnergyContainer(coverHolder.getLevel(), coverHolder.getPos(), attachedSide);
+        var energyContainer = getEnergyContainer(coverHolder.getLevel(), coverHolder.getBlockPos(), attachedSide);
         if (energyContainer != null) {
             var machine = getMachine();
+            WirelessEnergyContainer container = getWirelessEnergyContainer();
+            if (container == null) return;
+            long available = Math.min(this.energyPerTick, com.hepdd.gtmthings.utils.BigIntegerUtils.getLongValue(container.getStorage()));
+            if (com.hepdd.gtmthings.config.ConfigHolder.INSTANCE.isWirelessRateEnable) available = Math.min(available, container.getRate());
+            available = Math.min(available, energyContainer.getEnergyCapacity() - energyContainer.getEnergyStored());
+            if (available <= 0) return;
+            long accepted;
             if (machine instanceof BatteryBufferMachine || machine instanceof HullMachine || machine instanceof WirelessEnergyReceiveCoverHolder) {
-                var changeStored = Math.min(energyContainer.getEnergyCapacity() - energyContainer.getEnergyStored(), this.energyPerTick);
-                if (changeStored <= 0) return;
-                WirelessEnergyContainer container = getWirelessEnergyContainer();
-                if (container == null) return;
-                long changeenergy = container.removeEnergy(changeStored, machine);
-                if (changeenergy > 0) energyContainer.acceptEnergyFromNetwork(null, changeenergy / this.amperage, this.amperage);
-            } else {
-                var changeStored = Math.min(this.machineMaxEnergy - energyContainer.getEnergyStored(), this.energyPerTick);
-                if (changeStored <= 0) return;
-                WirelessEnergyContainer container = getWirelessEnergyContainer();
-                if (container == null) return;
-                long changeenergy = container.removeEnergy(changeStored, machine);
-                if (changeenergy > 0) energyContainer.addEnergy(changeenergy);
-            }
+                long voltage = Math.min(GTValues.VEX[tier], available);
+                long amps = Math.min(this.amperage, available / voltage);
+                accepted = energyContainer.acceptEnergyFromNetwork(null, voltage, amps) * voltage;
+            } else accepted = Math.max(0, energyContainer.addEnergy(available));
+            if (accepted > 0) container.removeEnergy(accepted, machine);
         }
         updateCoverSub();
     }
@@ -143,10 +151,7 @@ public class WirelessEnergyReceiveCover extends CoverBehavior implements IWirele
 
     @Nullable
     private MetaMachine getMachine() {
-        if (machine == null) machine = MetaMachine.getMachine(coverHolder.getLevel(), coverHolder.getPos());
-        if (machine instanceof TieredEnergyMachine tieredEnergyMachine) {
-            this.machineMaxEnergy = GTValues.VEX[tieredEnergyMachine.getTier()] << 6;
-        }
+        if (machine == null) machine = MetaMachine.getMachine(coverHolder.getLevel(), coverHolder.getBlockPos());
         return machine;
     }
 }

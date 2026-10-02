@@ -13,10 +13,10 @@ import com.gregtechceu.gtceu.common.data.machines.GTResearchMachines;
 import com.gregtechceu.gtceu.data.recipe.CustomTags;
 import com.gregtechceu.gtceu.data.recipe.VanillaRecipeHelper;
 
-import net.minecraft.data.recipes.FinishedRecipe;
+import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraftforge.common.Tags;
+import net.neoforged.neoforge.common.Tags;
 
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
@@ -24,7 +24,6 @@ import com.hepdd.gtmthings.GTMThings;
 import com.tterrag.registrate.util.entry.ItemEntry;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 import static com.gregtechceu.gtceu.api.data.tag.TagPrefix.*;
 import static com.gregtechceu.gtceu.common.data.GTMaterials.Steel;
@@ -35,7 +34,7 @@ import static com.hepdd.gtmthings.data.CustomItems.WIRELESS_ENERGY_BINDING_TOOL;
 
 public class GTMTRecipe {
 
-    public static void init(Consumer<FinishedRecipe> provider) {
+    public static void init(RecipeOutput provider) {
         GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(GTMThings.id("virtual_item_provider"))
                 .inputItems(GTItems.PROGRAMMED_CIRCUIT.asStack())
                 .inputItems(new ItemStack(AEBlocks.QUARTZ_VIBRANT_GLASS.block().asItem()))
@@ -340,33 +339,37 @@ public class GTMTRecipe {
                 .EUt(GTValues.VA[GTValues.UV])
                 .save(provider);
 
-        ASSEMBLER_RECIPES.recipeBuilder(GTMThings.id("wireless_energy_receive_cover_uhv"))
-                .inputItems(GTItems.SENSOR_UHV.asStack())
-                .inputItems(GTItems.EMITTER_UHV.asStack())
-                .inputItems(TagPrefix.plate, GTMaterials.EnderPearl, 4)
-                .inputItems(CustomTags.UHV_CIRCUITS, 2)
-                .inputItems(GTItems.VOLTAGE_COIL_UV.asStack())
-                .inputItems(GTItems.ULTRA_HIGH_POWER_INTEGRATED_CIRCUIT.asStack(4))
-                .inputItems(TagPrefix.cableGtSingle, GTMaterials.Trinium, 2)
-                .inputItems(TagPrefix.cableGtSingle, GTMaterials.RedAlloy, 2)
-                .inputItems(TagPrefix.plate, GTMaterials.Trinium, 4)
-                .inputFluids(GTMaterials.SolderingAlloy.getFluid(144))
-                .outputItems(CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV.asStack())
-                .duration(200)
-                .EUt(GTValues.VA[GTValues.UHV])
-                .save(provider);
+        // Native GT8 registers UHV components only with high-tier content enabled.
+        if (GTCEuAPI.isHighTier()) {
+            ASSEMBLER_RECIPES.recipeBuilder(GTMThings.id("wireless_energy_receive_cover_uhv"))
+                    .inputItems(GTItems.SENSOR_UHV.asStack())
+                    .inputItems(GTItems.EMITTER_UHV.asStack())
+                    .inputItems(TagPrefix.plate, GTMaterials.EnderPearl, 4)
+                    .inputItems(CustomTags.UHV_CIRCUITS, 2)
+                    .inputItems(GTItems.VOLTAGE_COIL_UV.asStack())
+                    .inputItems(GTItems.ULTRA_HIGH_POWER_INTEGRATED_CIRCUIT.asStack(4))
+                    .inputItems(TagPrefix.cableGtSingle, GTMaterials.Trinium, 2)
+                    .inputItems(TagPrefix.cableGtSingle, GTMaterials.RedAlloy, 2)
+                    .inputItems(TagPrefix.plate, GTMaterials.Trinium, 4)
+                    .inputFluids(GTMaterials.SolderingAlloy.getFluid(144))
+                    .outputItems(CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV.asStack())
+                    .duration(200)
+                    .EUt(GTValues.VA[GTValues.UHV])
+                    .save(provider);
 
-        ASSEMBLER_RECIPES.recipeBuilder(GTMThings.id("wireless_energy_receive_cover_uhv_4a"))
-                .inputItems(CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV.asStack(2))
-                .inputItems(GTItems.ADVANCED_SMD_INDUCTOR.asStack(64))
-                .inputItems(TagPrefix.cableGtQuadruple, GTMaterials.Trinium, 4)
-                .inputItems(GTItems.VOLTAGE_COIL_UV.asStack(2))
-                .inputItems(TagPrefix.plateDouble, GTMaterials.BatteryAlloy, 2)
-                .inputFluids(GTMaterials.SolderingAlloy.getFluid(144))
-                .outputItems(CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV_4A.asStack())
-                .duration(200)
-                .EUt(GTValues.VA[GTValues.UHV])
-                .save(provider);
+            ASSEMBLER_RECIPES.recipeBuilder(GTMThings.id("wireless_energy_receive_cover_uhv_4a"))
+                    .inputItems(CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV.asStack(2))
+                    .inputItems(GTItems.ADVANCED_SMD_INDUCTOR.asStack(64))
+                    .inputItems(TagPrefix.cableGtQuadruple, GTMaterials.Trinium, 4)
+                    .inputItems(GTItems.VOLTAGE_COIL_UV.asStack(2))
+                    .inputItems(TagPrefix.plateDouble, GTMaterials.BatteryAlloy, 2)
+                    .inputFluids(GTMaterials.SolderingAlloy.getFluid(144))
+                    .outputItems(CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV_4A.asStack())
+                    .duration(200)
+                    .EUt(GTValues.VA[GTValues.UHV])
+                    .save(provider);
+
+        }
 
         List<ItemEntry<ComponentItem>> WIRELESS_ENERGY_RECEIVE_COVER = new java.util.ArrayList<>(List.of(
                 CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_LV,
@@ -376,10 +379,10 @@ public class GTMTRecipe {
                 CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_IV,
                 CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_LUV,
                 CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_ZPM,
-                CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UV,
-                CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV));
+                CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UV));
         if (GTCEuAPI.isHighTier()) {
             WIRELESS_ENERGY_RECEIVE_COVER.addAll(List.of(
+                    CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV,
                     CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UEV,
                     CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UIV,
                     CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UXV,
@@ -395,10 +398,10 @@ public class GTMTRecipe {
                 CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_IV_4A,
                 CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_LUV_4A,
                 CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_ZPM_4A,
-                CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UV_4A,
-                CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV_4A));
+                CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UV_4A));
         if (GTCEuAPI.isHighTier()) {
             WIRELESS_ENERGY_RECEIVE_COVER_4A.addAll(List.of(
+                    CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UHV_4A,
                     CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UEV_4A,
                     CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UIV_4A,
                     CustomItems.WIRELESS_ENERGY_RECEIVE_COVER_UXV_4A,

@@ -4,9 +4,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.ItemHandlerHelper;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.items.IItemHandler;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -15,17 +14,15 @@ import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
-import static com.lowdragmc.lowdraglib.side.item.forge.ItemTransferHelperImpl.insertToEmpty;
-
 public class UnlimitItemTransferHelper {
 
     public static void exportToTarget(IItemHandler source, int maxAmount, Predicate<ItemStack> predicate, Level level, BlockPos pos, @Nullable Direction direction) {
+        if (maxAmount <= 0 || !level.hasChunkAt(pos)) return;
         if (level.getBlockState(pos).hasBlockEntity()) {
             var blockEntity = level.getBlockEntity(pos);
             if (blockEntity != null) {
-                var cap = blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER, direction).resolve();
-                if (cap.isPresent()) {
-                    var target = cap.get();
+                var target = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, direction);
+                if (target != null) {
                     for (int srcIndex = 0; srcIndex < source.getSlots(); srcIndex++) {
                         while (true) {
                             ItemStack sourceStack = source.extractItem(srcIndex, Integer.MAX_VALUE, true);
@@ -36,8 +33,22 @@ public class UnlimitItemTransferHelper {
                             int amountToInsert = sourceStack.getCount() - remainder.getCount();
                             if (amountToInsert > 0) {
                                 sourceStack = source.extractItem(srcIndex, Math.min(maxAmount, amountToInsert), false);
-                                insertItem(target, sourceStack, false);
-                                maxAmount -= Math.min(maxAmount, amountToInsert);
+                                ItemStack rejected = insertItem(target, sourceStack, false);
+                                int moved = sourceStack.getCount() - rejected.getCount();
+                                if (!rejected.isEmpty()) {
+                                    if (source instanceof net.neoforged.neoforge.items.IItemHandlerModifiable modifiable) {
+                                        ItemStack current = source.getStackInSlot(srcIndex);
+                                        if (current.isEmpty()) modifiable.setStackInSlot(srcIndex, rejected);
+                                        else if (ItemStack.isSameItemSameComponents(current, rejected) && (long) current.getCount() + rejected.getCount() <= Integer.MAX_VALUE)
+                                            modifiable.setStackInSlot(srcIndex, current.copyWithCount(current.getCount() + rejected.getCount()));
+                                        else throw new IllegalStateException("Source changed during wireless item rollback");
+                                    } else {
+                                        rejected = source.insertItem(srcIndex, rejected, false);
+                                        if (!rejected.isEmpty()) net.minecraft.world.level.block.Block.popResource(level, pos, rejected);
+                                    }
+                                }
+                                maxAmount -= moved;
+                                if (moved <= 0) break;
                                 if (maxAmount <= 0) return;
                             } else {
                                 break;
@@ -54,7 +65,10 @@ public class UnlimitItemTransferHelper {
             return stack;
         }
         if (!stack.isStackable()) {
-            return insertToEmpty(handler, stack, simulate);
+            for (int slot = 0; slot < handler.getSlots() && !stack.isEmpty(); slot++) {
+                if (handler.getStackInSlot(slot).isEmpty()) stack = handler.insertItem(slot, stack, simulate);
+            }
+            return stack;
         }
 
         IntList emptySlots = new IntArrayList();
@@ -65,7 +79,7 @@ public class UnlimitItemTransferHelper {
             if (slotStack.isEmpty()) {
                 emptySlots.add(i);
             }
-            if (ItemHandlerHelper.canItemStacksStackRelaxed(stack, slotStack)) {
+            if (ItemStack.isSameItemSameComponents(stack, slotStack)) {
                 stack = handler.insertItem(i, stack, simulate);
                 if (stack.isEmpty()) {
                     return ItemStack.EMPTY;

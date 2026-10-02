@@ -14,12 +14,16 @@
 
 ## Compatibility
 
+This working tree targets **Minecraft 1.21.1, NeoForge, GTCEu 8.0 and Java 21**.
+See [the porting and validation notes](PORTING_1_21.md) for pinned dependencies and development commands.
+The table below describes the original 1.20.1 Forge releases.
+
 | Mod Version   | GTM Version   | Status                  |
 |---------------|---------------|-------------------------|
 | <= 1.4.6      | 1.6.4         | End of Support          |
 | 1.4.7 - 1.5.2 | 7.0 Snapshot  | Not Recommended         |
 | 1.5.3         | 7.0.0 - 7.0.2 | End of Support          |
-| >= 1.5.4      | 7.1.0         | Currently Supported     |
+| 1.5.4+ (1.20.1 Forge) | 7.1.0 | Legacy compatibility |
 
 ---
 
@@ -87,7 +91,7 @@ Modifies a machine's circuit slot via a virtual item provider, removing the need
 ---
 
 ## Contributing
-Issues and PRs welcome. The codebase targets GTM >= 1.5.4 / GTM 7.1.0.
+Issues and PRs welcome. This working tree targets the native GTCEu 8.0 APIs for Minecraft 1.21.1 NeoForge.
 
 For bug reports please include your mod version, GTM version, and a description of the issue.
 

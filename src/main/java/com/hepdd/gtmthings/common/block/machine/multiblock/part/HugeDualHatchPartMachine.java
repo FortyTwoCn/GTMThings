@@ -1,205 +1,150 @@
 package com.hepdd.gtmthings.common.block.machine.multiblock.part;
 
+import com.gregtechceu.gtceu.api.blockentity.BlockEntityCreationInfo;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
-import com.gregtechceu.gtceu.api.gui.GuiTextures;
-import com.gregtechceu.gtceu.api.gui.fancy.ConfiguratorPanel;
-import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
-import com.gregtechceu.gtceu.api.machine.fancyconfigurator.FancyTankConfigurator;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableFluidTank;
+import com.gregtechceu.gtceu.api.capability.recipe.IRecipeHandler;
+import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableFluidTank;
+import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
+import com.gregtechceu.gtceu.utils.GTTransferUtils;
+import com.gregtechceu.gtceu.utils.ISubscription;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraftforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStack;
 
+import brachy.modularui.api.drawable.Text;
+import brachy.modularui.value.sync.FluidSlotSyncHandler;
+import brachy.modularui.value.sync.PanelSyncManager;
+import brachy.modularui.widgets.layout.Flow;
+import brachy.modularui.widgets.layout.Grid;
+import brachy.modularui.widgets.slot.FluidSlot;
 import com.hepdd.gtmthings.common.block.machine.trait.CatalystFluidStackHandler;
 import com.hepdd.gtmthings.utils.FormatUtil;
-import com.lowdragmc.lowdraglib.gui.util.ClickData;
-import com.lowdragmc.lowdraglib.gui.widget.ComponentPanelWidget;
-import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
-import com.lowdragmc.lowdraglib.gui.widget.Widget;
-import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
-import com.lowdragmc.lowdraglib.side.fluid.FluidTransferHelper;
-import com.lowdragmc.lowdraglib.side.item.ItemTransferHelper;
-import com.lowdragmc.lowdraglib.syncdata.ISubscription;
-import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
-import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 import lombok.Getter;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-import javax.annotation.ParametersAreNonnullByDefault;
-
-@ParametersAreNonnullByDefault
-@MethodsReturnNonnullByDefault
 public class HugeDualHatchPartMachine extends HugeBusPartMachine {
 
-    protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(HugeDualHatchPartMachine.class,
-            HugeBusPartMachine.MANAGED_FIELD_HOLDER);
-
-    @Override
-    public ManagedFieldHolder getFieldHolder() {
-        return MANAGED_FIELD_HOLDER;
-    }
-
-    @Persisted
-    protected final NotifiableFluidTank tank;
-    protected @Nullable ISubscription tankSubs;
-
-    @Persisted
     @Getter
+    @SaveField
+    protected final NotifiableFluidTank tank;
+    @Getter
+    @SaveField
     protected final CatalystFluidStackHandler shareTank;
+    private ISubscription tankSubs;
+    private boolean hasFluidTransfer, hasItemTransfer;
 
-    private boolean hasFluidTransfer;
-    private boolean hasItemTransfer;
-
-    public HugeDualHatchPartMachine(IMachineBlockEntity holder, int tier, IO io, Object... args) {
-        super(holder, tier, io, 9, args);
-        this.tank = createTank();
-        this.shareTank = new CatalystFluidStackHandler(this, 9, 16000, IO.IN, IO.NONE);
-    }
-
-    protected NotifiableFluidTank createTank(Object... args) {
-        return new NotifiableFluidTank(this, this.getTankInventorySize(), Integer.MAX_VALUE, io) {
+    public HugeDualHatchPartMachine(BlockEntityCreationInfo info, int tier, IO io, Object... args) {
+        super(info, tier, io, 9, args);
+        tank = attachTrait(new NotifiableFluidTank(getTankInventorySize(), Integer.MAX_VALUE, io) {
 
             @Override
             public boolean canCapOutput() {
                 return true;
             }
-        };
+        });
+        shareTank = attachTrait(new CatalystFluidStackHandler(9, 16000, IO.IN, IO.NONE));
     }
 
     protected int getTankInventorySize() {
-        return this.getTier() + 1;
+        return getTier() + 1;
     }
 
     @Override
-    public void attachConfigurators(ConfiguratorPanel configuratorPanel) {
-        super.attachConfigurators(configuratorPanel);
-        configuratorPanel.attachConfigurators(new FancyTankConfigurator(shareTank.getStorages(), Component.translatable("gui.gtceu.share_tank.title")).setTooltips(List.of(Component.translatable("gui.gtceu.share_tank.desc.0"),
-                Component.translatable("gui.gtceu.share_inventory.desc.1"))));
+    protected List<IRecipeHandler<?>> mainRecipeHandlers() {
+        var handlers = super.mainRecipeHandlers();
+        handlers.add(tank);
+        return handlers;
+    }
+
+    @Override
+    protected List<IRecipeHandler<?>> sharedRecipeHandlers() {
+        var handlers = super.sharedRecipeHandlers();
+        handlers.add(shareTank);
+        return handlers;
     }
 
     @Override
     public void onLoad() {
         super.onLoad();
-        this.tankSubs = this.tank.addChangedListener(this::updateInventorySubscription);
+        tankSubs = tank.addChangedListener(this::updateInventorySubscription);
     }
 
     @Override
     public void onUnload() {
-        super.onUnload();
-        if (this.tankSubs != null) {
-            this.tankSubs.unsubscribe();
-            this.tankSubs = null;
+        if (tankSubs != null) {
+            tankSubs.unsubscribe();
+            tankSubs = null;
         }
+        super.onUnload();
     }
 
     @Override
-    protected void refundAll(ClickData clickData) {
-        // 退不回去流体
-        super.refundAll(clickData);
-        if (hasFluidTransfer) {
-            this.tank.exportToNearby(this.getFrontFacing());
+    protected void refundAll() {
+        super.refundAll();
+        if (getLevel() != null && GTTransferUtils.hasAdjacentFluidHandler(getLevel(), getBlockPos(), getFrontFacing())) {
+            setWorkingEnabled(false);
+            tank.exportToNearby(getFrontFacing());
         }
     }
 
     @Override
     protected void updateInventorySubscription() {
-        boolean canOutput = this.io == IO.OUT && (!this.tank.isEmpty() || !this.getInventory().isEmpty());
-        Level level = this.getLevel();
-        if (level != null) {
-            this.hasItemTransfer = ItemTransferHelper.getItemTransfer(level, this.getPos().relative(this.getFrontFacing()), this.getFrontFacing().getOpposite()) != null;
-            this.hasFluidTransfer = FluidTransferHelper.getFluidTransfer(level, this.getPos().relative(this.getFrontFacing()), this.getFrontFacing().getOpposite()) != null;
-        } else {
-            this.hasItemTransfer = false;
-            this.hasFluidTransfer = false;
-        }
-
-        if (!this.isWorkingEnabled() || !canOutput && this.io != IO.IN || !this.hasItemTransfer && !this.hasFluidTransfer) {
-            if (this.autoIOSubs != null) {
-                this.autoIOSubs.unsubscribe();
-                this.autoIOSubs = null;
-            }
-        } else {
-            this.autoIOSubs = this.subscribeServerTick(this.autoIOSubs, this::autoIO);
+        if (getLevel() == null || isRemote() || tank == null) return;
+        hasItemTransfer = GTTransferUtils.hasAdjacentItemHandler(getLevel(), getBlockPos(), getFrontFacing());
+        hasFluidTransfer = GTTransferUtils.hasAdjacentFluidHandler(getLevel(), getBlockPos(), getFrontFacing());
+        if (isWorkingEnabled() && (io == IO.IN || !tank.isEmpty() || !inventory.isEmpty()) && (hasItemTransfer || hasFluidTransfer)) autoIOSubs = subscribeServerTick(autoIOSubs, this::autoIO);
+        else if (autoIOSubs != null) {
+            autoIOSubs.unsubscribe();
+            autoIOSubs = null;
         }
     }
 
     @Override
     protected void autoIO() {
-        if (this.getOffsetTimer() % 5 == 0) {
-            if (isWorkingEnabled()) {
-                if (this.io == IO.OUT) {
-                    if (this.hasItemTransfer) {
-                        this.getInventory().exportToNearby(this.getFrontFacing());
-                    }
-
-                    if (this.hasFluidTransfer) {
-                        this.tank.exportToNearby(this.getFrontFacing());
-                    }
-                } else if (this.io == IO.IN) {
-                    if (this.hasItemTransfer) {
-                        this.getInventory().importFromNearby(this.getFrontFacing());
-                    }
-
-                    if (this.hasFluidTransfer) {
-                        this.tank.importFromNearby(this.getFrontFacing());
-                    }
-                }
+        if (getOffsetTimer() % 5 != 0) return;
+        if (isWorkingEnabled()) {
+            if (io == IO.OUT) {
+                if (hasItemTransfer) exportToNearby(inventory, getFrontFacing());
+                if (hasFluidTransfer) tank.exportToNearby(getFrontFacing());
+            } else if (io == IO.IN) {
+                if (hasItemTransfer) inventory.importFromNearby(getFrontFacing());
+                if (hasFluidTransfer) tank.importFromNearby(getFrontFacing());
             }
         }
+        updateInventorySubscription();
     }
 
     @Override
-    public Widget createUIWidget() {
-        int height = 117;
-        int width = 178;
-        WidgetGroup group = new WidgetGroup(0, 0, width + 8, height + 4);
-        ComponentPanelWidget componentPanel = (new ComponentPanelWidget(8, 5, this::addDisplayText)).setMaxWidthLimit(width - 16);
-        WidgetGroup screen = (new DraggableScrollableWidgetGroup(4, 4, width, height)).setBackground(GuiTextures.DISPLAY).addWidget(componentPanel);
-        group.addWidget(screen);
-        return group;
+    protected List<Component> displayText() {
+        List<Component> lines = super.displayText();
+        int count = 0;
+        for (int i = 0; i < tank.getTanks(); i++) {
+            FluidStack fluid = tank.getFluidInTank(i);
+            if (!fluid.isEmpty()) {
+                lines.add(fluid.getHoverName().copy().withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(" " + (fluid.getAmount() < 1000 ? fluid.getAmount() + "mB" : FormatUtil.formatNumber(fluid.getAmount() / 1000L) + "B")).withStyle(ChatFormatting.AQUA)));
+                count++;
+            }
+        }
+        lines.add(1, Component.translatable("gtmthings.machine.huge_dual_hatch.tooltip.2", count, tank.getTanks())
+                .withStyle(ChatFormatting.GREEN));
+        return lines;
     }
 
-    private void addDisplayText(@NotNull List<Component> textList) {
-        int itemCount = 0;
-        int tankCount = 0;
+    @Override
+    protected int contentsDisplayHeight() {
+        return 65;
+    }
 
-        // item
-        for (int i = 0; i < super.getInventorySize() - 1; ++i) {
-            ItemStack is = super.getInventory().getStackInSlot(i);
-            if (!is.isEmpty()) {
-                textList.add(is.getDisplayName().copy().setStyle(Style.EMPTY.withColor(ChatFormatting.YELLOW))
-                        .append(Component.literal(FormatUtil.formatNumber(is.getCount())).setStyle(Style.EMPTY.withColor(ChatFormatting.AQUA))));
-                ++itemCount;
-            }
-        }
-
-        // tank
-        for (int i = 0; i < this.getTankInventorySize(); ++i) {
-            FluidStack fs = this.tank.getFluidInTank(i);
-            if (!fs.isEmpty()) {
-                textList.add(fs.getDisplayName().copy().setStyle(Style.EMPTY.withColor(ChatFormatting.GOLD))
-                        .append(Component.literal(fs.getAmount() < 1000 ? fs.getAmount() + "mB" :
-                                FormatUtil.formatNumber(fs.getAmount() / 1000L) + "B")
-                                .setStyle(Style.EMPTY.withColor(ChatFormatting.AQUA))));
-                ++tankCount;
-            }
-        }
-
-        if (textList.isEmpty()) {
-            textList.add(Component.translatable("gtmthings.machine.huge_item_bus.tooltip.3"));
-        }
-
-        textList.add(0, Component.translatable("gtmthings.machine.huge_item_bus.tooltip.2", itemCount, super.getInventorySize())
-                .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN)));
-        textList.add(1, Component.translatable("gtmthings.machine.huge_dual_hatch.tooltip.2", tankCount, this.getTankInventorySize())
-                .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN)));
+    @Override
+    protected void addSharedInventoryUI(Flow column, PanelSyncManager manager) {
+        super.addSharedInventoryUI(column, manager);
+        column.child(Text.lang("gui.gtceu.share_tank.title").asWidget()
+                .tooltip(r -> r.addLine(Component.translatable("gui.gtceu.share_tank.desc.0"))
+                        .addLine(Component.translatable("gui.gtceu.share_inventory.desc.1"))));
+        column.child(new Grid().coverChildren().gridOfSizeWidth(shareTank.getTanks(), 3,
+                (x, y, i) -> new FluidSlot().syncHandler(new FluidSlotSyncHandler(shareTank.getStorages()[i]))));
     }
 }

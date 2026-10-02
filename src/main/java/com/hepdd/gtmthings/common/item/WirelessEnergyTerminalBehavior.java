@@ -1,103 +1,65 @@
 package com.hepdd.gtmthings.common.item;
 
-import com.gregtechceu.gtceu.GTCEu;
-import com.gregtechceu.gtceu.api.gui.GuiTextures;
-import com.gregtechceu.gtceu.api.item.component.IItemUIFactory;
+import com.gregtechceu.gtceu.api.mui.IItemUIHolder;
 
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
-import com.hepdd.gtmthings.api.gui.widget.AlignComponentPanelWidget;
-import com.hepdd.gtmthings.api.gui.widget.AlignLabelWidget;
+import brachy.modularui.factory.PlayerInventoryGuiData;
+import brachy.modularui.screen.ModularPanel;
+import brachy.modularui.screen.UISettings;
+import brachy.modularui.value.sync.BooleanSyncValue;
+import brachy.modularui.value.sync.PanelSyncManager;
+import com.hepdd.gtmthings.api.gui.WirelessMonitorUI;
 import com.hepdd.gtmthings.api.misc.WirelessEnergyContainer;
-import com.lowdragmc.lowdraglib.gui.editor.ColorPattern;
-import com.lowdragmc.lowdraglib.gui.factory.HeldItemUIFactory;
-import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
-import com.lowdragmc.lowdraglib.gui.widget.*;
-import lombok.Getter;
-import lombok.Setter;
-import org.jetbrains.annotations.Nullable;
+import com.hepdd.gtmthings.utils.ItemData;
 
-import java.util.*;
+import java.util.UUID;
 
-import static com.hepdd.gtmthings.api.gui.widget.AlignLabelWidget.ALIGN_CENTER;
-import static com.hepdd.gtmthings.common.block.machine.electric.WirelessEnergyMonitor.DISPLAY_TEXT_WIDTH;
-
-public class WirelessEnergyTerminalBehavior implements IItemUIFactory {
+public class WirelessEnergyTerminalBehavior implements IItemUIHolder {
 
     @Override
-    public ModularUI createUI(HeldItemUIFactory.HeldItemHolder holder, Player entityPlayer) {
-        return new ModularUI(DISPLAY_TEXT_WIDTH + 8 + 8, 117 + 8 + 8 + 8 + 17, holder, entityPlayer).widget(createWidget(holder.getHeld().getDescriptionId(), new WirelessMonitor(entityPlayer.getUUID(), entityPlayer.level())));
+    public ModularPanel<?> buildUI(PlayerInventoryGuiData<?> data, PanelSyncManager manager, UISettings settings) {
+        WirelessMonitor monitor = new WirelessMonitor(data.getPlayer().getUUID(), data.getPlayer().level());
+        var all = new BooleanSyncValue(() -> ItemData.read(data.getUsedItemStack()).getBoolean("all"),
+                value -> ItemData.update(data.getUsedItemStack(), tag -> tag.putBoolean("all", value))).allowC2S();
+        return ModularPanel.defaultPanel("wireless_energy_terminal", 236, 175)
+                .child(WirelessMonitorUI.create(monitor, all, manager));
     }
 
-    private static Widget createWidget(String descriptionId, WirelessMonitor monitor) {
-        var group = new WidgetGroup(0, 0, DISPLAY_TEXT_WIDTH + 8 + 8, 117 + 8 + 8 + 8 + 17);
-        Widget label = new AlignLabelWidget(DISPLAY_TEXT_WIDTH / 2 + 4, 5, descriptionId).setTextAlign(ALIGN_CENTER);
-        group.addWidget(
-                new DraggableScrollableWidgetGroup(4, 4, DISPLAY_TEXT_WIDTH + 8, 117 + 8 + 8 + 17)
-                        .setBackground(GuiTextures.DISPLAY)
-                        .setYScrollBarWidth(2)
-                        .setYBarStyle(null, ColorPattern.T_WHITE.rectTexture().setRadius(1))
-                        .addWidget(label)
-                        .addWidget(new AlignComponentPanelWidget(4, 17, text -> addDisplayText(text, monitor))
-                                .setMaxWidthLimit(DISPLAY_TEXT_WIDTH)
-                                .setSplitChar(".")));
+    private static final class WirelessMonitor implements IWirelessMonitor {
 
-        group.setBackground(GuiTextures.BACKGROUND_INVERSE);
-        return group;
-    }
-
-    private static void addDisplayText(List<Component> textList, WirelessMonitor monitor) {
-        if (monitor.isRemote()) return;
-        if (monitor.displayTextCache == null || monitor.level.getServer().getTickCount() % 10 == 0) {
-            monitor.displayTextCache = monitor.getDisplayText(false, DISPLAY_TEXT_WIDTH);
-        }
-        textList.addAll(monitor.displayTextCache);
-    }
-
-    private static class WirelessMonitor implements IWirelessMonitor {
+        private final UUID uuid;
+        private final Level level;
+        private WirelessEnergyContainer cache;
 
         private WirelessMonitor(UUID uuid, Level level) {
             this.uuid = uuid;
             this.level = level;
         }
 
-        private boolean isRemote() {
-            return level == null ? GTCEu.isClientThread() : level.isClientSide;
-        }
-
-        private final UUID uuid;
-        private final Level level;
-
-        private List<Component> displayTextCache;
-
-        @Getter
-        @Setter
-        private WirelessEnergyContainer WirelessEnergyContainerCache;
-
-        /**
-         * @return cached uuid of player/team
-         */
         @Override
-        public @Nullable UUID getUUID() {
+        public UUID getUUID() {
             return uuid;
         }
 
-        /**
-         * @return false
-         */
         @Override
         public boolean display() {
             return false;
         }
 
-        /**
-         * @return level
-         */
         @Override
         public Level getLevel() {
             return level;
+        }
+
+        @Override
+        public WirelessEnergyContainer getWirelessEnergyContainerCache() {
+            return cache;
+        }
+
+        @Override
+        public void setWirelessEnergyContainerCache(WirelessEnergyContainer container) {
+            cache = container;
         }
     }
 }

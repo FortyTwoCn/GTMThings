@@ -17,7 +17,7 @@ import static com.hepdd.gtmthings.data.WirelessMachines.WIRELESS_ENERGY_INPUT_HA
 
 public class CreativeModeTabs {
 
-    public static final RegistryEntry<CreativeModeTab> CREATIVE_TAB = GTMTHINGS_REGISTRATE
+    public static final RegistryEntry<CreativeModeTab, CreativeModeTab> CREATIVE_TAB = GTMTHINGS_REGISTRATE
             .defaultCreativeTab("creative", builder -> builder
                     .displayItems(new GTCreativeModeTabs.RegistrateDisplayItemsGenerator("creative", GTMTHINGS_REGISTRATE))
                     .title(GTMTHINGS_REGISTRATE.addLang("itemGroup", GTMThings.id("creative"), GTMThings.NAME))
@@ -25,19 +25,19 @@ public class CreativeModeTabs {
                     .build())
             .register();
 
-    public static final RegistryEntry<CreativeModeTab> WIRELESS_TAB = GTMTHINGS_REGISTRATE
+    public static final RegistryEntry<CreativeModeTab, CreativeModeTab> WIRELESS_TAB = GTMTHINGS_REGISTRATE
             .defaultCreativeTab("wireless", builder -> builder
                     .displayItems(new GTCreativeModeTabs.RegistrateDisplayItemsGenerator("wireless", GTMTHINGS_REGISTRATE))
                     .title(GTMTHINGS_REGISTRATE.addLang("itemGroup", GTMThings.id("wireless"), GTMThings.NAME))
-                    .icon(WIRELESS_ENERGY_INPUT_HATCH[GTCEuAPI.isHighTier() ? MAX : UHV - 1]::asStack)
+                    .icon(() -> WIRELESS_ENERGY_INPUT_HATCH[GTCEuAPI.isHighTier() ? MAX : UHV - 1].asStack())
                     .build())
             .register();
 
-    public static final RegistryEntry<CreativeModeTab> MORE_MACHINES = GTMTHINGS_REGISTRATE
+    public static final RegistryEntry<CreativeModeTab, CreativeModeTab> MORE_MACHINES = GTMTHINGS_REGISTRATE
             .defaultCreativeTab("more_machines", builder -> builder
                     .displayItems(new GTCreativeModeTabs.RegistrateDisplayItemsGenerator("more_machines", GTMTHINGS_REGISTRATE))
                     .title(GTMTHINGS_REGISTRATE.addLang("itemGroup", GTMThings.id("more_machines"), GTMThings.NAME))
-                    .icon(DIGITAL_MINER[2]::asStack)
+                    .icon(() -> DIGITAL_MINER[2].asStack())
                     .build())
             .register();
 

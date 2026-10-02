@@ -1,75 +1,66 @@
 package com.hepdd.gtmthings.api.machine.trait;
 
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
-import com.gregtechceu.gtceu.api.machine.MetaMachine;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
+import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableItemStackHandler;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
-import com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient;
+import com.gregtechceu.gtceu.api.recipe.ingredient.IntProviderIngredient;
 import com.gregtechceu.gtceu.api.transfer.item.CustomItemStackHandler;
 import com.gregtechceu.gtceu.integration.ae2.utils.KeyStorage;
 
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Ingredient;
+import net.neoforged.neoforge.common.crafting.SizedIngredient;
 
 import appeng.api.stacks.AEItemKey;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
+/** Recipe-only output buffer. Simulation reserves space across every output with the same AE key. */
 public class InaccessibleInfiniteHandler extends NotifiableItemStackHandler {
 
-    private final ItemStackHandlerDelegate delegate;
+    private final KeyStorage buffer;
 
-    public InaccessibleInfiniteHandler(MetaMachine holder, KeyStorage internalBuffer) {
-        super(holder, 1, IO.OUT, IO.NONE, i -> new ItemStackHandlerDelegate(internalBuffer));
-        internalBuffer.setOnContentsChanged(this::onContentsChanged);
-        delegate = ((ItemStackHandlerDelegate) storage);
-    }
-
-    public static ItemStack getFirstSized(SizedIngredient sizedIngredient) {
-        Ingredient inner = sizedIngredient.getInner();
-        if (inner instanceof SizedIngredient ingredient) {
-            return getFirstSized(ingredient);
-        }
-        return getFirst(inner);
-    }
-
-    public static ItemStack getFirst(Ingredient ingredient) {
-        for (var stack : ingredient.getItems()) {
-            if (!stack.isEmpty()) {
-                return stack;
-            }
-        }
-        return ItemStack.EMPTY;
+    public InaccessibleInfiniteHandler(KeyStorage buffer) {
+        super(1, IO.OUT, IO.NONE, size -> new EmptyStorage());
+        this.buffer = buffer;
+        shouldDropInventoryInWorld(false);
+        buffer.setOnContentsChanged(() -> {
+            onContentsChanged();
+            markAsChanged();
+        });
     }
 
     @Override
-    public List<Ingredient> handleRecipe(IO io, GTRecipe recipe, List<?> left, boolean simulate) {
-        if (!simulate && io == IO.OUT) {
-            for (Object ingredient : left) {
-                if (((Ingredient) ingredient).isEmpty()) continue;
-                ItemStack item;
-                int count;
-                if (ingredient instanceof SizedIngredient sizedIngredient) {
-                    item = getFirstSized(sizedIngredient);
-                    count = sizedIngredient.getAmount();
-                } else {
-                    item = getFirst((Ingredient) ingredient);
-                    count = item.getCount();
-                }
-                if (item.isEmpty()) continue;
-                delegate.insertItem(item, count);
+    public List<SizedIngredient> handleRecipeInner(IO io, GTRecipe recipe, List<SizedIngredient> left, boolean simulate) {
+        if (io != IO.OUT) return left;
+        var reserved = new HashMap<AEItemKey, Long>();
+        boolean changed = false;
+        for (var it = left.listIterator(); it.hasNext();) {
+            SizedIngredient ingredient = it.next();
+            ItemStack[] items = ingredient.ingredient().getCustomIngredient() instanceof IntProviderIngredient provider && simulate ? new ItemStack[] { provider.getMaxSizeStack() } : ingredient.getItems();
+            if (items.length == 0 || items[0].isEmpty()) {
+                it.remove();
+                continue;
             }
-            delegate.internalBuffer.onChanged();
-            return null;
+            AEItemKey key = AEItemKey.of(items[0]);
+            int amount = ingredient.ingredient().getCustomIngredient() instanceof IntProviderIngredient provider && simulate ? provider.getMaxRoll() : ingredient.count();
+            long existing = reserved.getOrDefault(key, buffer.storage.getLong(key));
+            int accepted = (int) Math.min(amount, Long.MAX_VALUE - existing);
+            reserved.put(key, existing + accepted);
+            if (!simulate && accepted > 0) {
+                buffer.storage.put(key, existing + accepted);
+                changed = true;
+            }
+            if (accepted >= amount) it.remove();
+            else it.set(new SizedIngredient(ingredient.ingredient(), amount - accepted));
         }
-        return null;
+        if (changed) buffer.onChanged();
+        return left;
     }
 
     @Override
     public List<Object> getContents() {
-        return Collections.emptyList();
+        return List.of();
     }
 
     @Override
@@ -82,21 +73,7 @@ public class InaccessibleInfiniteHandler extends NotifiableItemStackHandler {
         return true;
     }
 
-    private static class ItemStackHandlerDelegate extends CustomItemStackHandler {
-
-        private final KeyStorage internalBuffer;
-
-        private ItemStackHandlerDelegate(KeyStorage internalBuffer) {
-            super();
-            this.internalBuffer = internalBuffer;
-        }
-
-        private void insertItem(ItemStack stack, int count) {
-            var key = AEItemKey.of(stack);
-            long oldValue = internalBuffer.storage.getOrDefault(key, 0);
-            long changeValue = Math.min(Long.MAX_VALUE - oldValue, count);
-            internalBuffer.storage.put(key, oldValue + changeValue);
-        }
+    private static final class EmptyStorage extends CustomItemStackHandler {
 
         @Override
         public int getSlots() {
@@ -109,30 +86,16 @@ public class InaccessibleInfiniteHandler extends NotifiableItemStackHandler {
         }
 
         @Override
-        public @NotNull ItemStack getStackInSlot(int slot) {
+        public ItemStack getStackInSlot(int slot) {
             return ItemStack.EMPTY;
         }
 
         @Override
-        public void setStackInSlot(int slot, @NotNull ItemStack stack) {}
+        public void setStackInSlot(int slot, ItemStack stack) {}
 
         @Override
-        public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-            var key = AEItemKey.of(stack);
-            int count = stack.getCount();
-            long oldValue = internalBuffer.storage.getOrDefault(key, 0);
-            long changeValue = Math.min(Long.MAX_VALUE - oldValue, count);
-            if (!simulate) {
-                internalBuffer.storage.put(key, oldValue + changeValue);
-            } else if (count != changeValue) {
-                return stack.copyWithCount((int) (count - changeValue));
-            }
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
             return ItemStack.EMPTY;
         }
-    }
-
-    @Override
-    public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-        return ItemStack.EMPTY;
     }
 }

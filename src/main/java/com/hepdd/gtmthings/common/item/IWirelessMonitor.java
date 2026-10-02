@@ -13,7 +13,6 @@ import com.hepdd.gtmthings.api.misc.WirelessEnergyContainer;
 import com.hepdd.gtmthings.config.ConfigHolder;
 import com.hepdd.gtmthings.utils.BigIntegerUtils;
 import com.hepdd.gtmthings.utils.TeamUtil;
-import com.lowdragmc.lowdraglib.gui.widget.ComponentPanelWidget;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -60,7 +59,7 @@ public interface IWirelessMonitor extends IWirelessEnergyContainerHolder {
         textListCache.add(formatWithConstantWidth("gtmthings.machine.wireless_energy_monitor.tooltip.now", Component.literal(formatBigDecimalNumberOrSic(avgEnergy)).withStyle(ChatFormatting.DARK_PURPLE), Component.literal(voltageAmperage(avgEnergy).toEngineeringString()), voltageName(avgEnergy)));
 
         int compare = avgEnergy.compareTo(BigDecimal.valueOf(0));
-        BigInteger multiply = avgEnergy.abs().toBigInteger().multiply(BigInteger.valueOf(20));
+        BigInteger multiply = avgEnergy.abs().multiply(BigDecimal.valueOf(20)).setScale(0, java.math.RoundingMode.CEILING).toBigInteger();
         if (compare > 0) {
             textListCache.add(Component.translatable("gtceu.multiblock.power_substation.time_to_fill",
                     container.getCapacity() == null ? Component.translatable("gtmthings.machine.wireless_energy_monitor.tooltip.time_to_fill") : getTimeToFillDrainText((container.getCapacity().subtract(energyTotal)).divide(multiply))).withStyle(ChatFormatting.GRAY));
@@ -73,17 +72,13 @@ public interface IWirelessMonitor extends IWirelessEnergyContainerHolder {
             String pos = container.getBindPos().pos().toShortString();
             textListCache.add(Component.translatable("gtmthings.machine.wireless_energy_hatch.tooltip.2", Component.translatable("recipe.condition.dimension.tooltip", container.getBindPos().dimension().location().toString()).append(" [").append(pos).append("] ")).withStyle(ChatFormatting.GRAY));
         }
-        textListCache.add(Component.translatable("gtmthings.machine.wireless_energy_monitor.tooltip.statistics").append(ComponentPanelWidget.withButton(all ? Component.translatable("gtmthings.machine.wireless_energy_monitor.tooltip.all") : Component.translatable("gtmthings.machine.wireless_energy_monitor.tooltip.team"), "all")));
 
-        for (Map.Entry<MetaMachine, ITransferData> m : WirelessEnergyContainer.TRANSFER_DATA.entrySet().stream().sorted(Comparator.comparingLong(entry -> entry.getValue().Throughput())).toList()) {
+        for (Map.Entry<MetaMachine, ITransferData> m : WirelessEnergyContainer.TRANSFER_SNAPSHOT.entrySet().stream().sorted(Comparator.comparingLong(entry -> entry.getValue().Throughput())).toList()) {
             UUID uuid = m.getValue().UUID();
             if (all || uuid.equals(TeamUtil.getTeamUUID(this.getUUID()))) {
                 textListCache.add(m.getValue().getInfo());
             }
         }
-
-        WirelessEnergyContainer.observed = true;
-        WirelessEnergyContainer.TRANSFER_DATA.clear();
 
         return textListCache;
     }

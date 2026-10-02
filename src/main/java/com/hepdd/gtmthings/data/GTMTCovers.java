@@ -4,9 +4,10 @@ import com.gregtechceu.gtceu.GTCEu;
 import com.gregtechceu.gtceu.api.GTCEuAPI;
 import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.api.cover.CoverDefinition;
-import com.gregtechceu.gtceu.api.registry.GTRegistries;
 import com.gregtechceu.gtceu.client.renderer.cover.ICoverRenderer;
 import com.gregtechceu.gtceu.client.renderer.cover.SimpleCoverRenderer;
+
+import net.minecraft.core.Holder;
 
 import com.hepdd.gtmthings.GTMThings;
 import com.hepdd.gtmthings.common.cover.*;
@@ -27,58 +28,56 @@ public class GTMTCovers {
             // MAX is also a tier with hatches.
             GTCEuAPI.isHighTier() ? GTValues.MAX : GTValues.UV);
 
-    public final static CoverDefinition CREATIVE_ENERGY = register("creative_energy",
+    public final static Holder<CoverDefinition> CREATIVE_ENERGY = register("creative_energy",
             CreativeEnergyCover::new, () -> () -> new SimpleCoverRenderer(GTMThings.id("block/cover/overlay_creative_energy")));
 
-    public final static CoverDefinition PROGRAMMABLE_COVER = register("programmable_cover",
+    public final static Holder<CoverDefinition> PROGRAMMABLE_COVER = register("programmable_cover",
             ProgrammableCover::new, () -> () -> new SimpleCoverRenderer(GTCEu.id("item/programmed_circuit/1")));
 
-    public final static CoverDefinition[] WIRELESS_ENERGY_RECEIVE = registerTieredWirelessCover(
+    public final static Holder<CoverDefinition>[] WIRELESS_ENERGY_RECEIVE = registerTieredWirelessCover(
             "wireless_energy_receive", 1, ALL_TIERS);
 
-    public final static CoverDefinition[] WIRELESS_ENERGY_RECEIVE_4A = registerTieredWirelessCover(
+    public final static Holder<CoverDefinition>[] WIRELESS_ENERGY_RECEIVE_4A = registerTieredWirelessCover(
             "4a_wireless_energy_receive", 4, ALL_TIERS);
 
-    public final static CoverDefinition WIRELESS_ITEM_TRANSFER = register("wireless_item_transfer",
+    public final static Holder<CoverDefinition> WIRELESS_ITEM_TRANSFER = register("wireless_item_transfer",
             (holder, coverable, side) -> new WirelessTransferCover(holder, coverable, side, WirelessTransferCover.TRANSFER_ITEM),
             () -> () -> new SimpleCoverRenderer(GTMThings.id("block/cover/overlay_wireless_item_transfer")));
 
-    public final static CoverDefinition WIRELESS_FLUID_TRANSFER = register("wireless_fluid_transfer",
+    public final static Holder<CoverDefinition> WIRELESS_FLUID_TRANSFER = register("wireless_fluid_transfer",
             (holder, coverable, side) -> new WirelessTransferCover(holder, coverable, side, WirelessTransferCover.TRANSFER_FLUID),
             () -> () -> new SimpleCoverRenderer(GTMThings.id("block/cover/overlay_wireless_fluid_transfer")));
 
-    public final static CoverDefinition ADVANCED_WIRELESS_ITEM_TRANSFER = register("advanced_wireless_item_transfer",
+    public final static Holder<CoverDefinition> ADVANCED_WIRELESS_ITEM_TRANSFER = register("advanced_wireless_item_transfer",
             (holder, coverable, side) -> new AdvancedWirelessTransferCover(holder, coverable, side, WirelessTransferCover.TRANSFER_ITEM),
             () -> () -> new SimpleCoverRenderer(GTMThings.id("block/cover/overlay_wireless_item_transfer")));
 
-    public final static CoverDefinition ADVANCED_WIRELESS_FLUID_TRANSFER = register("advanced_wireless_fluid_transfer",
+    public final static Holder<CoverDefinition> ADVANCED_WIRELESS_FLUID_TRANSFER = register("advanced_wireless_fluid_transfer",
             (holder, coverable, side) -> new AdvancedWirelessTransferCover(holder, coverable, side, WirelessTransferCover.TRANSFER_FLUID),
             () -> () -> new SimpleCoverRenderer(GTMThings.id("block/cover/overlay_wireless_fluid_transfer")));
 
-    public static CoverDefinition register(String id, CoverDefinition.CoverBehaviourProvider behaviorCreator,
-                                           Supplier<Supplier<ICoverRenderer>> coverRenderer) {
-        var definition = new CoverDefinition(GTMThings.id(id), behaviorCreator, coverRenderer);
-        GTRegistries.COVERS.register(GTMThings.id(id), definition);
-        return definition;
+    public static Holder<CoverDefinition> register(String id, CoverDefinition.CoverBehaviourProvider behaviorCreator,
+                                                   Supplier<Supplier<ICoverRenderer>> coverRenderer) {
+        return GTMTHINGS_REGISTRATE.cover(id, behaviorCreator, coverRenderer);
     }
 
-    public static CoverDefinition[] registerTieredWirelessCover(String id, int amperage, int[] tiers) {
+    public static Holder<CoverDefinition>[] registerTieredWirelessCover(String id, int amperage, int[] tiers) {
         return Arrays.stream(tiers).mapToObj(tier -> {
             var name = id + "." + GTValues.VN[tier].toLowerCase(Locale.ROOT);
             return register(name,
                     (holder, coverable, side) -> new WirelessEnergyReceiveCover(holder, coverable, side, tier, amperage),
                     () -> () -> new SimpleCoverRenderer(GTMThings.id("block/cover/overlay_" + (amperage == 1 ? "" : "4a_") + "wireless_energy_receive")));
-        }).toArray(CoverDefinition[]::new);
+        }).toArray(Holder[]::new);
     }
 
-    public static CoverDefinition[] registerTiered(String id,
-                                                   CoverDefinition.TieredCoverBehaviourProvider behaviorCreator,
-                                                   Supplier<Int2ObjectFunction<ICoverRenderer>> coverRenderer, int amperage, int... tiers) {
+    public static Holder<CoverDefinition>[] registerTiered(String id,
+                                                           CoverDefinition.TieredCoverBehaviourProvider behaviorCreator,
+                                                           Supplier<Int2ObjectFunction<ICoverRenderer>> coverRenderer, int amperage, int... tiers) {
         return Arrays.stream(tiers).mapToObj(tier -> {
             var name = id + "." + GTValues.VN[tier].toLowerCase(Locale.ROOT);
             return register(name, (def, coverable, side) -> behaviorCreator.create(def, coverable, side, tier),
                     () -> () -> coverRenderer.get().apply(tier));
-        }).toArray(CoverDefinition[]::new);
+        }).toArray(Holder[]::new);
     }
 
     public static void init() {}
