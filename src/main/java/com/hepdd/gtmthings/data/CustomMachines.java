@@ -113,7 +113,7 @@ public class CustomMachines {
                 builder.tooltips(Component.translatable("gtceu.universal.tooltip.item_storage_capacity",
                         (1 + tier) * INV_MULTIPLE))
                         .tooltips(Component.translatable("gtceu.universal.tooltip.fluid_storage_capacity_mult",
-                                tier, FormattingUtil.formatNumbers(Integer.MAX_VALUE)));
+                                tier + 1, FormattingUtil.formatNumbers(Integer.MAX_VALUE)));
                 return builder.register();
             },
             ALL_TIERS);
