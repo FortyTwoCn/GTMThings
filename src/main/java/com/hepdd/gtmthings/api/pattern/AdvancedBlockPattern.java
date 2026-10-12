@@ -197,7 +197,7 @@ public final class AdvancedBlockPattern {
     }
 
     private static void configure(AbstractStructureHelper helper, MultiPredicate predicate, AutoBuildSetting options, Player player, Set<Block> existing) {
-        boolean hasCasing = predicate.predicates().stream().flatMap(p -> p.getCandidates().stream()).anyMatch(i -> i.nonAir() && !Hatch.isHatch(i.getBlockState().getBlock()));
+        boolean hasCasing = predicate.expand().stream().flatMap(p -> p.getCandidates().stream()).anyMatch(i -> i.nonAir() && !Hatch.isHatch(i.getBlockState().getBlock()));
         configure(helper, predicate, options, player, hasCasing, existing);
     }
 
